@@ -43,8 +43,8 @@ class ManifoldAPI():
 		# Start processing the bets queues in a separate thread
 		threading.Thread(target=self.process_bet_queue, daemon=True).start()
 
-	def log_api_call(self, endpoint):
-		self.log_buffer.append({"timestamp": datetime.now().isoformat(), "endpoint": endpoint})
+	def log_api_call(self, endpoint, method, params):
+		self.log_buffer.append({"timestamp": datetime.now().isoformat(), "endpoint": endpoint, "method": method, "params": params})
 		
 		if len(self.log_buffer) >= 1:
 			with open(log_file, "a") as f:
@@ -55,7 +55,7 @@ class ManifoldAPI():
    
 	def make_request(self, endpoint, method="GET", params=None, future=None):
 		headers = {"Authorization": f"Key {api_key}"}
-		self.log_api_call(endpoint)
+		self.log_api_call(endpoint, method, params)
 
 		try:
 			if method == "GET":

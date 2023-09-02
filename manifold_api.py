@@ -231,32 +231,6 @@ class ManifoldAPI():
 		self.reads_queue.put((f"https://manifold.markets/api/v0/market/{id}", "GET", None, future))
 		return future
 
-	def get_market_bets_by_id(self, id):
-		'''
-		GET /v0/market/[marketId]/bets
-
-		Gets information about the bets in a single market by ID.  
-
-		Requires no authorization.
-		'''
-		future = Future()
-		
-		self.reads_queue.put((f"https://manifold.markets/api/v0/market/{id}/bets", "GET", None, future))
-		return future
-
-	def get_market_comments_by_id(self, id):
-		'''
-		GET /v0/market/[marketId]/comments
-
-		Gets information about the comments in a single market by ID.  
-
-		Requires no authorization.
-		'''
-		future = Future()
-		
-		self.reads_queue.put((f"https://manifold.markets/api/v0/market/{id}/comments", "GET", None, future))
-		return future
-
 	def get_market_positions_by_id(self, id, order='profit', top=None, bottom=None, userId=None):
 		'''
 		GET /v0/market/[marketId]/positions

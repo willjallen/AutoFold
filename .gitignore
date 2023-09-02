@@ -1,6 +1,9 @@
 # Secrets!!
 .secrets
 
+# Logs
+api_call_logs.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

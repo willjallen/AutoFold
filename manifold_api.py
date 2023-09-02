@@ -25,7 +25,7 @@ Keep your reads to less than 100 per second.
 A non-refundable transaction fee of M0.25 will be levied on any bet, sell, or limit order placed through the API, or by any account marked as a bot.
 Comments placed through the API will incur a M1 transaction fee.
 '''
-REQUESTS_PER_SECOND = 100
+REQUESTS_PER_SECOND = 60
 BETS_PER_MINUTE = 5
 
 class ManifoldAPI():
@@ -38,7 +38,10 @@ class ManifoldAPI():
 		self.executor = ThreadPoolExecutor(max_workers=50)
 	 
 		# Start processing the request queues in a separate thread
-		threading.Thread(target=self.process_queues, daemon=True).start()
+		threading.Thread(target=self.process_read_queue, daemon=True).start()
+
+		# Start processing the bets queues in a separate thread
+		threading.Thread(target=self.process_bet_queue, daemon=True).start()
 
 	def log_api_call(self, endpoint):
 		self.log_buffer.append({"timestamp": datetime.now().isoformat(), "endpoint": endpoint})
@@ -56,12 +59,13 @@ class ManifoldAPI():
 
 		try:
 			if method == "GET":
+				print(params)
 				response = requests.get(endpoint, headers=headers, params=params)
 			elif method == "POST":
 				response = requests.post(endpoint, headers=headers, json=params)
 
 			if response.status_code != 200:
-				print(f"Error: {response.status_code}, {response.json()}")
+				print(f"Error: {response.status_code}, {response}")
 				if future:
 					future.set_exception(Exception(f"HTTP Error: {response.status_code}"))
 			else:
@@ -71,18 +75,8 @@ class ManifoldAPI():
 			if future:
 				future.set_exception(e)
 				
-	def process_queues(self):
+	def process_read_queue(self):
 		while True:
-			current_time = time.time()
-			
-			self.bet_timestamps = [t for t in self.bet_timestamps if current_time - t < 60]
-
-			# Process bet requests if we can
-			while len(self.bet_timestamps) < BETS_PER_MINUTE and not self.bets_queue.empty():
-				endpoint, method, params, future = self.bets_queue.get()
-				self.executor.submit(self.make_request, endpoint, method, params, future)
-				self.bet_timestamps.append(current_time)
-
 			# Process read requests
 			reads_counter = 0
 			while reads_counter < REQUESTS_PER_SECOND and not self.reads_queue.empty():
@@ -91,6 +85,17 @@ class ManifoldAPI():
 				reads_counter += 1
 			
 			time.sleep(1)
+
+	def process_bet_queue(self):
+		while True:
+			bets_counter = 0	
+			# Process bet requests if we can
+			while len(self.bet_timestamps) < BETS_PER_MINUTE and not self.bets_queue.empty():
+				endpoint, method, params, future = self.bets_queue.get()
+				self.executor.submit(self.make_request, endpoint, method, params, future)
+				bets_counter += 1	
+    
+			time.sleep(60)
 
 
 
@@ -133,22 +138,23 @@ class ManifoldAPI():
   
 		self.reads_queue.put((f"https://manifold.markets/api/v0/me", "GET", None, future))
 		return future
-	
-	def get_groups(self):
-		'''
-		GET /v0/groups
 
-		Gets all groups, in no particular order.
+	# Returns 500 error	
+	# def get_groups(self):
+	# 	'''
+	# 	GET /v0/groups
 
-		Parameters:
-		availableToUserId: Optional. if specified, only groups that the user can join and groups they've already joined will be returned.
-		Requires no authorization.
-		'''
+	# 	Gets all groups, in no particular order.
+
+	# 	Parameters:
+	# 	availableToUserId: Optional. if specified, only groups that the user can join and groups they've already joined will be returned.
+	# 	Requires no authorization.
+	# 	'''
 	 
-		future = Future()
+	# 	future = Future()
 		
-		self.reads_queue.put(("https://manifold.markets/api/v0/groups", "GET", None, future))
-		return future
+	# 	self.reads_queue.put(("https://manifold.markets/api/v0/groups", "GET", None, future))
+	# 	return future
 
 	def get_group_by_slug(self, slug):
 		'''

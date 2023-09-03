@@ -59,7 +59,6 @@ class ManifoldAPI():
 
 		try:
 			if method == "GET":
-				print(params)
 				response = requests.get(endpoint, headers=headers, params=params)
 			elif method == "POST":
 				response = requests.post(endpoint, headers=headers, json=params)

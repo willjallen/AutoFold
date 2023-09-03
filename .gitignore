@@ -4,6 +4,15 @@
 # Logs
 api_call_logs.json
 
+# Database
+manifold.db
+
+# Strategies
+# Ignore everything in the "strategies" directory
+strategies/*
+# Except for the example
+!strategies/example_strategy.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

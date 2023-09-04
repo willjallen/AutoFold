@@ -4,8 +4,8 @@
 # Logs
 api_call_logs.json
 
-# Database
-manifold_database.db
+# Databases
+dbs/*
 
 # Dumps
 dumps/*

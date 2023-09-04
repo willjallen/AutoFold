@@ -5,7 +5,7 @@
 api_call_logs.json
 
 # Database
-manifold.db
+manifold_database.db
 
 # Strategies
 # Ignore everything in the "strategies" directory

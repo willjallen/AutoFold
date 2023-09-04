@@ -29,7 +29,7 @@ class ManifoldDatabase:
 
     def get_conn(self):
         if not hasattr(self.local_storage, "conn"):
-            self.local_storage.conn = sqlite3.connect("manifold_database.db")
+            self.local_storage.conn = sqlite3.connect("dbs/manifold_database.db")
             self.local_storage.conn.execute("PRAGMA journal_mode=WAL;")
         return self.local_storage.conn
 
@@ -551,3 +551,9 @@ class ManifoldDatabase:
         except sqlite3.Error as e:
             print("Database error in upsert_bets:", e)
             conn.rollback()  # Rollback transaction in case of error
+
+# Single writer, multiple readers
+# Readers are implemented by strategies
+class ManifoldDatabaseWriter:
+    def __init__(self, manifold_db):
+        self.manifold_db = manifold_db

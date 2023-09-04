@@ -556,6 +556,11 @@ class ManifoldDatabase:
 class ManifoldDatabaseReader:
     def __init__(self, manifold_db):
         self.manifold_db = manifold_db
+        self.manifold_db.get_conn().row_factory = self.dict_factory
+
+    def dict_factory(self, cursor, row):
+        """Row factory to produce dictionary results."""
+        return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
 
     def execute_query(self, query, params=None):
         """

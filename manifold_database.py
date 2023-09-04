@@ -4,7 +4,7 @@ import threading
 import time
 
 from utils.str_utils import collapse_list_of_strings_to_string
-
+import concurrent.futures
 
 # Helper function for multiple upserts
 def prepare_and_execute_multi_upsert(conn, query, fields, data):
@@ -552,8 +552,37 @@ class ManifoldDatabase:
             print("Database error in upsert_bets:", e)
             conn.rollback()  # Rollback transaction in case of error
 
-# Single writer, multiple readers
-# Readers are implemented by strategies
+
+class ManifoldDatabaseReader:
+    def __init__(self, manifold_db):
+        self.manifold_db = manifold_db
+
+    def execute_query(self, query, params=None):
+        """
+        Execute a read query and return the results.
+
+        :param query: The SQL query string.
+        :param params: Any parameters for the query (optional).
+        :return: The query results.
+        """
+        conn = self.manifold_db.get_conn()
+        cursor = conn.cursor()
+        cursor.execute(query, params or [])
+        return cursor.fetchall()
+
 class ManifoldDatabaseWriter:
     def __init__(self, manifold_db):
         self.manifold_db = manifold_db
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)  # Only one writer at a time for thread safety
+
+    def queue_write_operation(self, function, *args, **kwargs):
+        """
+        Queue a write operation to the database.
+
+        :param function: The function to execute (a write function from ManifoldDatabase class).
+        :param args: Arguments for the function.
+        :param kwargs: Keyword arguments for the function.
+        :return: Future object representing the execution of the operation.
+        """
+        future = self.executor.submit(function, *args, **kwargs)
+        return future

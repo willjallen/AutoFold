@@ -13,7 +13,9 @@ dumps/*
 # Strategies
 # Ignore everything in the "strategies" directory
 strategies/*
-# Except for the example
+# Except for the base class
+!strategies/strategy.py
+# And the example
 !strategies/example_strategy.py
 
 # Byte-compiled / optimized / DLL files

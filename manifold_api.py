@@ -15,8 +15,6 @@ with open(".secrets", "r") as f:
 log_file = "api_call_logs.json"
 
 
-
-
 '''
 From docs:
 Keep your bets to less than 10 per minute, amortized (transient spikes of over 10/min are okay).
@@ -25,6 +23,11 @@ Keep your reads to less than 100 per second.
 A non-refundable transaction fee of M0.25 will be levied on any bet, sell, or limit order placed through the API, or by any account marked as a bot.
 Comments placed through the API will incur a M1 transaction fee.
 '''
+
+'''
+API interface is most recent with 2023-05-15 on changelog.
+'''
+
 REQUESTS_PER_SECOND = 60
 BETS_PER_MINUTE = 5
 
@@ -104,7 +107,8 @@ class ManifoldAPI():
 
 		Gets a user by their username. Remember that usernames may change.
 
-		Requires no authorization.
+		Parameters:
+		username: Required. The username of the user.
 		'''	
 	 
 		future = Future()
@@ -112,18 +116,19 @@ class ManifoldAPI():
 		self.reads_queue.put((f"https://manifold.markets/api/v0/user/{username}", "GET", None, future))
 		return future
 
-	def get_user_by_id(self, id):
+	def get_user_by_id(self, userId):
 		'''
 		GET /v0/user/by-id/[id]
 
 		Gets a user by their unique ID. Many other API endpoints return this as the userId.
 
-		Requires no authorization
+		Pramaters:
+		userId: Required. The id of the user.
 		'''	
 	 
 		future = Future()
 		
-		self.reads_queue.put((f"https://manifold.markets/api/v0/user/by-id/{id}", "GET", None, future))
+		self.reads_queue.put((f"https://manifold.markets/api/v0/user/by-id/{userId}", "GET", None, future))
 		return future
 
 	def get_me(self):
@@ -155,45 +160,50 @@ class ManifoldAPI():
 	# 	self.reads_queue.put(("https://manifold.markets/api/v0/groups", "GET", None, future))
 	# 	return future
 
-	def get_group_by_slug(self, slug):
+	def get_group_by_slug(self, groupSlug):
 		'''
 		GET /v0/group/[slug]
 
 		Gets a group by its slug.
-
-		Requires no authorization. Note: group is singular in the URL.
+		
+  		Note: group is singular in the URL.
+    
+		Paramaters:
+		groupSlug: Required. The slug of the group.
 		'''
 	 
 		future = Future()
 		
-		self.reads_queue.put((f"https://manifold.markets/api/v0/group/{slug}", "GET", None, future))
+		self.reads_queue.put((f"https://manifold.markets/api/v0/group/{groupSlug}", "GET", None, future))
 		return future
 
-	def get_group_by_id(self, id):
+	def get_group_by_id(self, groupId):
 		'''
 		GET /v0/group/by-id/[id]
 
 		Gets a group by its unique ID.
-
-		Requires no authorization. Note: group is singular in the URL.
+  
+		Parameters:
+		groupId: Required. The id of the group.
 		'''
 	 
 		future = Future()
 		
-		self.reads_queue.put((f"https://manifold.markets/api/v0/group/by-id/{id}", "GET", None, future))
+		self.reads_queue.put((f"https://manifold.markets/api/v0/group/by-id/{groupId}", "GET", None, future))
 		return future
  
-	def get_group_markets_by_id(self, id):
+	def get_group_markets_by_id(self, groupId):
 		'''
 		GET /v0/group/by-id/[id]/markets
 
 		Gets a group's markets by its unique ID.
 
-		Requires no authorization. Note: group is singular in the URL.
+		Paramaters:
+		groupId: Required. The id of the group.
 		'''
 		future = Future()
 		
-		self.reads_queue.put((f"https://manifold.markets/api/v0/group/by-id/{id}/markets", "GET", None, future))
+		self.reads_queue.put((f"https://manifold.markets/api/v0/group/by-id/{groupId}/markets", "GET", None, future))
 		return future
 
 	def get_markets(self, limit=500, before=None):
@@ -204,7 +214,6 @@ class ManifoldAPI():
 		Lists all markets, ordered by creation date descending.
 
 		Parameters:
-
 		limit: Optional. How many markets to return. The maximum is 1000 and the default is 500.
 		before: Optional. The ID of the market before which the list will start. For example, if you ask for the most recent 10 markets, and then perform a second query for 10 more markets with before=[the id of the 10th market], you will get markets 11 through 20.
 		''' 
@@ -216,33 +225,32 @@ class ManifoldAPI():
 		self.reads_queue.put(("https://manifold.markets/api/v0/markets", "GET", params, future))
 		return future
 	
-	def get_market_by_id(self, id):
+	def get_market_by_id(self, marketId):
 		'''
 		GET /v0/market/[marketId]
 
-		Gets information about a single market by ID. Includes answers, but not bets and comments. 
+		Gets information about a single market by ID. Includes answers, but not bets and comments. Use /bets or /comments with a market ID to retrieve bets or comments. 
 
-		Requires no authorization.
+		Paramaters:
+		marketId: Required. The id of the market.
 		'''
 	 
 		future = Future()
 		
-		self.reads_queue.put((f"https://manifold.markets/api/v0/market/{id}", "GET", None, future))
+		self.reads_queue.put((f"https://manifold.markets/api/v0/market/{marketId}", "GET", None, future))
 		return future
 
-	def get_market_positions_by_id(self, id, order='profit', top=None, bottom=None, userId=None):
+	def get_market_positions(self, order='profit', top=None, bottom=None, userId=None):
 		'''
 		GET /v0/market/[marketId]/positions
   
-		Get positions information about a single market by ID.
+		Get positions information about a single market.
 
 		Parameters:
-		order - Optional. The field to order results by. Default: profit. Options: shares or profit,
-		top - Optional. The number of top positions (ordered by order) to return. Default: null.
-		bottom - Optional. The number of bottom positions (ordered by order) to return. Default: null.
-		userId - Optional. The user ID to query by. Default: null. If provided, only the position for this user will be returned.
-
-		Requires no authorization.
+		order: Optional. The field to order results by. Default: profit. Options: shares or profit,
+		top: Optional. The number of top positions (ordered by order) to return. Default: null.
+		bottom: Optional. The number of bottom positions (ordered by order) to return. Default: null.
+		userId: Optional. The user ID to query by. Default: null. If provided, only the positions for this user will be returned.
 		'''
 		future = Future()
 		
@@ -257,16 +265,17 @@ class ManifoldAPI():
 		self.reads_queue.put(("https://manifold.markets/api/v0/market/{id}/positions", "GET", params, future))
 		return future
 
-	def get_market_by_slug(self, slug):
+	def get_market_by_slug(self, marketSlug):
 		'''
 		GET /v0/slug/[marketSlug]
   
 		Gets information about a single market by slug (the portion of the URL path after the username).
 
-		Requires no authorization.
+		Paramters:
+		marketSlug: Required. The slug of the market.
 		'''
 		future = Future()
-		self.reads_queue.put((f"https://manifold.markets/api/v0/slug/{slug}", "GET", None, future))
+		self.reads_queue.put((f"https://manifold.markets/api/v0/slug/{marketSlug}", "GET", None, future))
 		return future
 
 
@@ -274,11 +283,10 @@ class ManifoldAPI():
 		'''
 		GET /v0/search-markets
 
-		Search markets by keywords, limited to 100 results. Parameters:
+		Search markets by keywords, limited to 100 results.
 
+		Paramaters:
 		terms: Optional. A space-separated list of keywords to search for.
-
-		Requires no authorization.
 		'''
 
 		future = Future()
@@ -296,11 +304,8 @@ class ManifoldAPI():
 		Lists all users, ordered by creation date descending.
 
 		Parameters:
-
 		limit: Optional. How many users to return. The maximum is 1000 and the default is 500.
 		before: Optional. The ID of the user before which the list will start. For example, if you ask for the most recent 10 users, and then perform a second query for 10 more users with before=[the id of the 10th user], you will get users 11 through 20.
-
-		Requires no authorization.
 		'''
 
 		future = Future()
@@ -320,7 +325,6 @@ class ManifoldAPI():
 		Places a new bet on behalf of the authorized user.
 
 		Parameters:
-
 		amount: Required. The amount to bet, in mana, before fees.
 		contractId: Required. The ID of the contract (market) to bet on.
 		outcome: Required. The outcome to bet on. For binary markets, this is YES or NO. For free response markets, this is the ID of the free response answer. For numeric markets, this is a string representing the target bucket, and an additional value parameter is required which is a number representing the target value. (Bet on numeric markets at your own peril.)
@@ -342,16 +346,19 @@ class ManifoldAPI():
 		self.bets_queue.put(("https://manifold.markets/api/v0/bet", "POST", params, future))
 		return future	
 
-	def cancel_bet(self, id):
+	def cancel_bet(self, betId):
 		'''
-		POST /v0/bet/cancel/[id]
+		POST /v0/bet/cancel/[betId]
 
-		Cancel the limit order of a bet with the specified id. 
+		Cancels the limit order of a bet with the specified id.
 
-		This action is irreversible.
+		Parameters:
+		betId: Required. The unique identifier for the bet to be cancelled.
+
+		Note: This action is irreversible.
 		'''
 		future = Future()
-		self.bets_queue.put((f"https://manifold.markets/api/v0/bet/cancel/{id}", "POST", None, future))
+		self.bets_queue.put((f"https://manifold.markets/api/v0/bet/cancel/{betId}", "POST", None, future))
 		return future
 
 	def create_market(self, outcomeType, question, description=None, closeTime=None, visibility=None, groupId=None, initialProb=None, min=None, max=None, isLogScale=None, initialValue=None, answers=None):
@@ -359,6 +366,20 @@ class ManifoldAPI():
 		POST /v0/market
 
 		Creates a new market on behalf of the authorized user.
+
+		Parameters:
+		outcomeType: Required. The type of outcome for the market.
+		question: Required. The main question for the market.
+		description: Optional. A detailed description for the market.
+		closeTime: Optional. Time when the market closes.
+		visibility: Optional. The visibility setting for the market.
+		groupId: Optional. The group ID associated with the market.
+		initialProb: Optional. The initial probability for the market outcome.
+		min: Optional. The minimum value for a numeric market.
+		max: Optional. The maximum value for a numeric market.
+		isLogScale: Optional. Whether the market uses a logarithmic scale.
+		initialValue: Optional. The initial value for the market.
+		answers: Optional. Possible answers for a free response market.
 		'''
 		future = Future()
 		params = {"outcomeType": outcomeType, "question": question}
@@ -380,7 +401,11 @@ class ManifoldAPI():
 		'''
 		POST /v0/market/[marketId]/add-liquidity
 
-		Adds a specified amount of liquidity into the market.
+		Adds liquidity to a specific market.
+
+		Parameters:
+		marketId: Required. The id of the market.
+		amount: Required. The amount of liquidity to be added.
 		'''
 		future = Future()
 		params = {"amount": amount}
@@ -392,6 +417,10 @@ class ManifoldAPI():
 		POST /v0/market/[marketId]/close
 
 		Closes a market on behalf of the authorized user.
+  
+		Parameters:
+		marketId: Required. The unique identifier for the market to be closed.
+		closeTime: Optional. Milliseconds since the epoch to close the market at. If not provided, the market will be closed immediately. Cannot provide close time in the past.
 		'''
 		future = Future()
 		params = {}
@@ -399,11 +428,15 @@ class ManifoldAPI():
 		self.bets_queue.put((f"https://manifold.markets/api/v0/market/{marketId}/close", "POST", params, future))
 		return future
 
-	def manage_market_group(self, marketId, groupId, remove=None):
+	def manage_group_market(self, marketId, groupId, remove=None):
 		'''
 		POST /v0/market/[marketId]/group
 
 		Add or remove a market to/from a group.
+
+		marketId: Required. The id of the market.
+		groupId: Required. The id of the group. Must be admin/moderator/creator of group if curated/private. Must be market creator or trustworthyish if group is public.
+		remove: Optional. Set to true to remove the market from the group. 
 		'''
 		future = Future()
 		params = {"groupId": groupId}
@@ -416,6 +449,24 @@ class ManifoldAPI():
 		POST /v0/market/[marketId]/resolve
 
 		Resolves a market on behalf of the authorized user.
+  
+		Parameters:
+		marketId: Required. The id of the market.
+  
+		For binary markets:
+		outcome: Required. One of YES, NO, MKT, or CANCEL.
+		probabilityInt: Optional. The probability to use for MKT resolution.
+
+		For free response or multiple choice markets:
+		outcome: Required. One of MKT, CANCEL, or a number indicating the answer index.
+		resolutions: An array of { answer, pct } objects to use as the weights for resolving in favor of multiple free response options. Can only be set with MKT outcome. Note that the total weights must add to 100.
+
+		For numeric markets:
+		outcome: Required. One of CANCEL, or a number indicating the selected numeric bucket ID.
+		value: The value that the market resolves to.
+		probabilityInt: Required if value is present. Should be equal to
+		If log scale: log10(value - min + 1) / log10(max - min + 1)
+		Otherwise: (value - min) / (max - min) 
 		'''
 		future = Future()
 		params = {"outcome": outcome}
@@ -427,14 +478,19 @@ class ManifoldAPI():
 		return future
 
 
-	def cancel_bet(self, id):
+	def cancel_bet(self, betId):
 		'''
-		POST /v0/bet/cancel/[id]
+		POST /v0/bet/cancel/[betId]
 
 		Cancel the limit order of a bet with the specified id.
+  
+		Parameters:
+		id: required. The id of the bet.
+
+		Note: This action is irreversible. 
 		'''
 		future = Future()
-		self.bets_queue.put((f"https://manifold.markets/api/v0/bet/cancel/{id}", "POST", None, future))
+		self.bets_queue.put((f"https://manifold.markets/api/v0/bet/cancel/{betId}", "POST", None, future))
 		return future
 
 	def sell_shares(self, marketId, outcome=None, shares=None):
@@ -442,6 +498,11 @@ class ManifoldAPI():
 		POST /v0/market/[marketId]/sell
 
 		Sells some quantity of shares in a binary market.
+  
+		Parameters:
+		marketId: required. The unique identifier for the binary market where shares are being sold.
+		outcome: Optional. One of YES, or NO. If you leave it off, and you only own one kind of shares, you will sell that kind of shares. 
+		shares: Optional. The amount of shares to sell of the outcome given above. If not provided, all the shares you own will be sold.
 		'''
 		future = Future()
 		params = {}
@@ -457,6 +518,12 @@ class ManifoldAPI():
 		POST /v0/comment
 
 		Creates a comment in the specified market.
+  
+		Paramaters:
+		contractId: Required. The id of the market to comment on.
+		content: The comment to post, formatted as TipTap json, OR
+		html: The comment to post, formatted as an HTML string, OR
+		markdown: The comment to post, formatted as a markdown string. 
 		'''
 		future = Future()
 		params = {"contractId": contractId}
@@ -474,6 +541,10 @@ class ManifoldAPI():
 		GET /v0/comments
 
 		Gets a list of comments for a contract.
+  
+		Parameters:
+		contractId: Optional. Which contract to read comments for. Either an id or slug must be specified.
+		contractSlug: Optional. 
 		'''
 		future = Future()
 		params = {}
@@ -488,7 +559,15 @@ class ManifoldAPI():
 		'''
 		GET /v0/bets
 
-		Gets a list of bets.
+		Gets a list of bets, ordered by creation date descending.
+  
+		Parameters:
+		userId: Optional. If set, the response will include only bets created by this user.
+		username: Optional. If set, the response will include only bets created by this user.
+		contractId: Optional. If set, the response will only include bets on this contract.
+		contractSlug: Optional. If set, the response will only include bets on this contract.
+		limit: Optional. How many bets to return. The maximum and the default are 1000.
+		before: Optional. The ID of the bet before which the list will start. For example, if you ask for the most recent 10 bets, and then perform a second query for 10 more bets with before=[the id of the 10th bet], you will get bets 11 through 20. 
 		'''
 		future = Future()
 		params = {}

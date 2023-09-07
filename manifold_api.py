@@ -41,12 +41,12 @@ class ManifoldAPI():
 		self.executor = ThreadPoolExecutor(max_workers=50)
 	 
 		# Start processing the request queues in a separate thread
-		threading.Thread(target=self.process_read_queue, daemon=True).start()
+		threading.Thread(target=self._process_read_queue, daemon=True).start()
 
 		# Start processing the bets queues in a separate thread
-		threading.Thread(target=self.process_bet_queue, daemon=True).start()
+		threading.Thread(target=self._process_bet_queue, daemon=True).start()
 
-	def log_api_call(self, endpoint, method, params):
+	def _log_api_call(self, endpoint, method, params):
 		self.log_buffer.append({"timestamp": datetime.now().isoformat(), "endpoint": endpoint, "method": method, "params": params})
 		
 		if len(self.log_buffer) >= 1:
@@ -55,10 +55,10 @@ class ManifoldAPI():
 					json.dump(log, f)
 					f.write('\n')
 			self.log_buffer = []
-   
-	def make_request(self, endpoint, method="GET", params=None, future=None):
+
+	def _make_request(self, endpoint, method="GET", params=None, future=None):
 		headers = {"Authorization": f"Key {api_key}"}
-		self.log_api_call(endpoint, method, params)
+		self._log_api_call(endpoint, method, params)
 
 		try:
 			if method == "GET":
@@ -77,29 +77,66 @@ class ManifoldAPI():
 			if future:
 				future.set_exception(e)
 				
-	def process_read_queue(self):
+	def _process_read_queue(self):
 		while True:
 			# Process read requests
 			reads_counter = 0
 			while reads_counter < REQUESTS_PER_SECOND and not self.reads_queue.empty():
 				endpoint, method, params, future = self.reads_queue.get()
-				self.executor.submit(self.make_request, endpoint, method, params, future)
+				self.executor.submit(self._make_request, endpoint, method, params, future)
 				reads_counter += 1
 			
 			time.sleep(1)
 
-	def process_bet_queue(self):
+	def _process_bet_queue(self):
 		while True:
 			bets_counter = 0	
 			# Process bet requests if we can
 			while len(self.bet_timestamps) < BETS_PER_MINUTE and not self.bets_queue.empty():
 				endpoint, method, params, future = self.bets_queue.get()
-				self.executor.submit(self.make_request, endpoint, method, params, future)
+				self.executor.submit(self._make_request, endpoint, method, params, future)
 				bets_counter += 1	
     
 			time.sleep(60)
 
+	@staticmethod
+	def retrieve_all_data(api_call_func, max_limit=1000, **api_params):
+		"""
+		Iteratively retrieves all available data from an API endpoint that supports pagination via a `before` parameter.
 
+		:param api_call_func: A function that makes the API call and returns a Future object.
+		:param max_limit: The maximum number of items to request in a single API call. Defaults to 1000.
+		:param api_params: Additional parameters to pass to the API call function.
+		
+		:return: A list containing all retrieved items.
+  
+		Note: This function is blocking.
+		"""
+		all_data = []
+		last_item_id = None
+		has_more_data = True
+		
+		while has_more_data:
+			try:
+				# Include the 'before' parameter if we have a last_item_id to work with
+				if last_item_id:
+					api_params['before'] = last_item_id
+
+				# Make the API call
+				future_response = api_call_func(limit=max_limit, **api_params)
+				response = future_response.result()
+
+				if response:
+					all_data.extend(response)
+					last_item_id = response[-1]['id']
+					has_more_data = len(response) == max_limit
+				else:
+					has_more_data = False
+			except Exception as e:
+				print(f"An error occurred: {e}")
+				has_more_data = False
+
+		return all_data   
 
 	def get_user_by_username(self, username):
 		'''

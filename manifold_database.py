@@ -261,7 +261,7 @@ class ManifoldDatabase:
             base_fields = [
                     "id", "createdTime", "name", "username", 
                     "url", "bio", "balance", "totalDeposits", 
-                    "totalPnLCached"
+                    "totalPnLCached", "retrievedTimestamp"
                 ]
             
             # Insert or Replace into the base table

@@ -1,0 +1,9 @@
+[bot]
+# Time in seconds, set to -1 to disable
+bot_user_info_update_interval = 60
+all_users_update_interval = 1
+all_markets_update_interval = 1
+
+[strategies]
+    [strategies.ExampleStrategy]
+    filename = "example_strategy.py"

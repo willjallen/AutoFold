@@ -52,7 +52,31 @@ class ManifoldSubscriber():
 
 	def update_user_bets(self, userId):
 		bets = self.manifold_api.retrieve_all_data(api_call_func=self.manifold_api.get_bets, max_limit=1000, api_params={"userId": userId})
-		self.manifold_db_writer.queue_write_operation(function=self.manifold_db.upsert_bets, bets=[bets]).result()
+		self.manifold_db_writer.queue_write_operation(function=self.manifold_db.upsert_bets, bets=bets).result()
 	
-	def subscribe_to_market():
+	def subscribe_to_market(self, marketId):
 		pass
+
+	def subscribe_to_all_users(self, polling_time=3600):
+		self.scheduler.add_job(func=self.update_all_users, trigger='interval', seconds=polling_time) 
+
+	def update_all_users(self):
+		users = self.manifold_api.retrieve_all_data(self.manifold_api.get_users, max_limit=1000)
+		self.manifold_db_writer.queue_write_operation(function=self.manifold_db.upsert_users, users=users).result()
+
+	def subscribe_to_all_markets(self, polling_time=3600):
+		self.scheduler.add_job(func=self.update_all_markets, trigger='interval', seconds=polling_time) 
+
+	def update_all_markets(self):
+		markets = self.manifold_api.retrieve_all_data(self.manifold_api.get_markets, max_limit=1000)
+		binary_choice_markets = []
+		multiple_choice_markets = []
+		for market in markets:
+			if market["outcomeType"] == "BINARY":
+				binary_choice_markets.append(market)
+			elif market["outcomeType"] == "MULTIPLE_CHOICE":
+				multiple_choice_markets.append(market)
+   
+		self.manifold_db_writer.queue_write_operation(function=self.manifold_db.upsert_binary_choice_markets, markets=binary_choice_markets).result()
+		self.manifold_db_writer.queue_write_operation(function=self.manifold_db.upsert_multiple_choice_markets, markets=multiple_choice_markets).result()
+  

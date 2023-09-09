@@ -277,7 +277,7 @@ class ManifoldAPI():
 		self.reads_queue.put((f"https://manifold.markets/api/v0/market/{marketId}", "GET", None, future))
 		return future
 
-	def get_market_positions(self, order='profit', top=None, bottom=None, userId=None):
+	def get_market_positions(self, marketId, order='profit', top=None, bottom=None, userId=None):
 		'''
 		GET /v0/market/[marketId]/positions
   
@@ -299,7 +299,7 @@ class ManifoldAPI():
 		if userId:
 			params["userId"] = userId
    
-		self.reads_queue.put(("https://manifold.markets/api/v0/market/{id}/positions", "GET", params, future))
+		self.reads_queue.put((f"https://manifold.markets/api/v0/market/{marketId}/positions", "GET", params, future))
 		return future
 
 	def get_market_by_slug(self, marketSlug):

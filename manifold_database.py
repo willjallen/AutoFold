@@ -454,6 +454,7 @@ class ManifoldDatabase:
                 
                 from_fields = ["contractId", "userId", "period", "value", "profit", "invested", "prevValue", "profitPercent"]
                 prepare_and_execute_multi_upsert(
+                    conn=conn,
                     query="INSERT OR REPLACE INTO contract_metrics_from ({fields}) VALUES ({placeholders})",
                     fields=from_fields,
                     data=[

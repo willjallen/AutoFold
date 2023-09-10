@@ -580,6 +580,10 @@ class ManifoldDatabaseReader:
         :return: The query results.
         """
         conn = self.manifold_db.get_conn()
+        
+        # Set row factory here so it returns dicts.
+        conn.row_factory = self.dict_factory
+        
         cursor = conn.cursor()
         cursor.execute(query, params or [])
         return cursor.fetchall()

@@ -7,6 +7,10 @@ from queue import Queue, Full
 from concurrent.futures import ThreadPoolExecutor, Future
 
 
+DEVELOPMENT_MODE = False
+DEV_DOMAIN = 'https://dev.manifold.markets' 
+MAIN_DOMAIN = 'https://manifold.markets'
+
 # Load API key from the local .secrets file
 with open(".secrets", "r") as f:
 	secrets = json.load(f)
@@ -149,8 +153,8 @@ class ManifoldAPI():
 		'''	
 	 
 		future = Future()
-		
-		self.reads_queue.put((f"https://manifold.markets/api/v0/user/{username}", "GET", None, future))
+	
+		self.reads_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/user/{username}", "GET", None, future))
 		return future
 
 	def get_user_by_id(self, userId):
@@ -165,7 +169,7 @@ class ManifoldAPI():
 	 
 		future = Future()
 		
-		self.reads_queue.put((f"https://manifold.markets/api/v0/user/by-id/{userId}", "GET", None, future))
+		self.reads_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/user/by-id/{userId}", "GET", None, future))
 		return future
 
 	def get_me(self):
@@ -177,7 +181,7 @@ class ManifoldAPI():
 
 		future = Future()
   
-		self.reads_queue.put((f"https://manifold.markets/api/v0/me", "GET", None, future))
+		self.reads_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/me", "GET", None, future))
 		return future
 
 	# Returns 500 error	
@@ -194,7 +198,7 @@ class ManifoldAPI():
 	 
 	# 	future = Future()
 		
-	# 	self.reads_queue.put(("https://manifold.markets/api/v0/groups", "GET", None, future))
+	# 	self.reads_queue.put(("{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/groups", "GET", None, future))
 	# 	return future
 
 	def get_group_by_slug(self, groupSlug):
@@ -211,7 +215,7 @@ class ManifoldAPI():
 	 
 		future = Future()
 		
-		self.reads_queue.put((f"https://manifold.markets/api/v0/group/{groupSlug}", "GET", None, future))
+		self.reads_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/group/{groupSlug}", "GET", None, future))
 		return future
 
 	def get_group_by_id(self, groupId):
@@ -226,7 +230,7 @@ class ManifoldAPI():
 	 
 		future = Future()
 		
-		self.reads_queue.put((f"https://manifold.markets/api/v0/group/by-id/{groupId}", "GET", None, future))
+		self.reads_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/group/by-id/{groupId}", "GET", None, future))
 		return future
  
 	def get_group_markets_by_id(self, groupId):
@@ -240,7 +244,7 @@ class ManifoldAPI():
 		'''
 		future = Future()
 		
-		self.reads_queue.put((f"https://manifold.markets/api/v0/group/by-id/{groupId}/markets", "GET", None, future))
+		self.reads_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/group/by-id/{groupId}/markets", "GET", None, future))
 		return future
 
 	def get_markets(self, limit=500, before=None):
@@ -259,7 +263,7 @@ class ManifoldAPI():
 		params = {"limit": limit}
 		if before:
 			params["before"] = before
-		self.reads_queue.put(("https://manifold.markets/api/v0/markets", "GET", params, future))
+		self.reads_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/markets", "GET", params, future))
 		return future
 	
 	def get_market_by_id(self, marketId):
@@ -274,7 +278,7 @@ class ManifoldAPI():
 	 
 		future = Future()
 		
-		self.reads_queue.put((f"https://manifold.markets/api/v0/market/{marketId}", "GET", None, future))
+		self.reads_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/market/{marketId}", "GET", None, future))
 		return future
 
 	def get_market_positions(self, marketId, order='profit', top=None, bottom=None, userId=None):
@@ -299,7 +303,7 @@ class ManifoldAPI():
 		if userId:
 			params["userId"] = userId
    
-		self.reads_queue.put((f"https://manifold.markets/api/v0/market/{marketId}/positions", "GET", params, future))
+		self.reads_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/market/{marketId}/positions", "GET", params, future))
 		return future
 
 	def get_market_by_slug(self, marketSlug):
@@ -312,7 +316,7 @@ class ManifoldAPI():
 		marketSlug: Required. The slug of the market.
 		'''
 		future = Future()
-		self.reads_queue.put((f"https://manifold.markets/api/v0/slug/{marketSlug}", "GET", None, future))
+		self.reads_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/slug/{marketSlug}", "GET", None, future))
 		return future
 
 
@@ -331,7 +335,7 @@ class ManifoldAPI():
 		if terms:
 			params["terms"] = terms
    
-		self.reads_queue.put(("https://manifold.markets/api/v0/search-markets", "GET", params, future))
+		self.reads_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/search-markets", "GET", params, future))
 		return future	
 
 	def get_users(self, limit=None, before=None):
@@ -352,7 +356,7 @@ class ManifoldAPI():
 		if before:
 			params["before"] = before
    
-		self.reads_queue.put(("https://manifold.markets/api/v0/users", "GET", params, future))
+		self.reads_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/users", "GET", params, future))
 		return future	
 
 	def make_bet(self, amount, contractId, outcome, limitProb=None, expiresAt=None):
@@ -380,7 +384,7 @@ class ManifoldAPI():
 		if expiresAt:
 			params["expiresAt"] = expiresAt
    
-		self.bets_queue.put(("https://manifold.markets/api/v0/bet", "POST", params, future))
+		self.bets_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/bet", "POST", params, future))
 		return future	
 
 	def cancel_bet(self, betId):
@@ -395,7 +399,7 @@ class ManifoldAPI():
 		Note: This action is irreversible.
 		'''
 		future = Future()
-		self.bets_queue.put((f"https://manifold.markets/api/v0/bet/cancel/{betId}", "POST", None, future))
+		self.bets_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/bet/cancel/{betId}", "POST", None, future))
 		return future
 
 	def create_market(self, outcomeType, question, description=None, closeTime=None, visibility=None, groupId=None, initialProb=None, min=None, max=None, isLogScale=None, initialValue=None, answers=None):
@@ -431,7 +435,7 @@ class ManifoldAPI():
 		if initialValue: params["initialValue"] = initialValue
 		if answers: params["answers"] = answers
 
-		self.bets_queue.put(("https://manifold.markets/api/v0/market", "POST", params, future))
+		self.bets_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/market", "POST", params, future))
 		return future
 
 	def add_liquidity(self, marketId, amount):
@@ -446,7 +450,7 @@ class ManifoldAPI():
 		'''
 		future = Future()
 		params = {"amount": amount}
-		self.bets_queue.put((f"https://manifold.markets/api/v0/market/{marketId}/add-liquidity", "POST", params, future))
+		self.bets_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/market/{marketId}/add-liquidity", "POST", params, future))
 		return future
 
 	def close_market(self, marketId, closeTime=None):
@@ -462,7 +466,7 @@ class ManifoldAPI():
 		future = Future()
 		params = {}
 		if closeTime: params["closeTime"] = closeTime
-		self.bets_queue.put((f"https://manifold.markets/api/v0/market/{marketId}/close", "POST", params, future))
+		self.bets_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/market/{marketId}/close", "POST", params, future))
 		return future
 
 	def manage_group_market(self, marketId, groupId, remove=None):
@@ -478,7 +482,7 @@ class ManifoldAPI():
 		future = Future()
 		params = {"groupId": groupId}
 		if remove: params["remove"] = remove
-		self.bets_queue.put((f"https://manifold.markets/api/v0/market/{marketId}/group", "POST", params, future))
+		self.bets_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/market/{marketId}/group", "POST", params, future))
 		return future
 
 	def resolve_market(self, marketId, outcome, probabilityInt=None, resolutions=None, value=None):
@@ -511,7 +515,7 @@ class ManifoldAPI():
 		if resolutions: params["resolutions"] = resolutions
 		if value: params["value"] = value
 
-		self.bets_queue.put((f"https://manifold.markets/api/v0/market/{marketId}/resolve", "POST", params, future))
+		self.bets_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/market/{marketId}/resolve", "POST", params, future))
 		return future
 
 
@@ -527,7 +531,7 @@ class ManifoldAPI():
 		Note: This action is irreversible. 
 		'''
 		future = Future()
-		self.bets_queue.put((f"https://manifold.markets/api/v0/bet/cancel/{betId}", "POST", None, future))
+		self.bets_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/bet/cancel/{betId}", "POST", None, future))
 		return future
 
 	def sell_shares(self, marketId, outcome=None, shares=None):
@@ -547,7 +551,7 @@ class ManifoldAPI():
 			params["outcome"] = outcome
 		if shares:
 			params["shares"] = shares
-		self.bets_queue.put((f"https://manifold.markets/api/v0/market/{marketId}/sell", "POST", params, future))
+		self.bets_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/market/{marketId}/sell", "POST", params, future))
 		return future
 
 	def create_comment(self, contractId, content=None, html=None, markdown=None):
@@ -570,7 +574,7 @@ class ManifoldAPI():
 			params["html"] = html
 		elif markdown:
 			params["markdown"] = markdown
-		self.reads_queue.put((f"https://manifold.markets/api/v0/comment", "POST", params, future))
+		self.reads_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/comment", "POST", params, future))
 		return future
 
 	def get_comments(self, contractId=None, contractSlug=None):
@@ -589,7 +593,7 @@ class ManifoldAPI():
 			params["contractId"] = contractId
 		if contractSlug:
 			params["contractSlug"] = contractSlug
-		self.reads_queue.put((f"https://manifold.markets/api/v0/comments", "GET", params, future))
+		self.reads_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/comments", "GET", params, future))
 		return future
 
 	def get_bets(self, userId=None, username=None, contractId=None, contractSlug=None, limit=None, before=None):
@@ -620,6 +624,6 @@ class ManifoldAPI():
 			params["limit"] = limit
 		if before:
 			params["before"] = before
-		self.reads_queue.put((f"https://manifold.markets/api/v0/bets", "GET", params, future))
+		self.reads_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/bets", "GET", params, future))
 		return future
 

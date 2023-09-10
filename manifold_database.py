@@ -16,9 +16,13 @@ def prepare_and_execute_multi_upsert(conn, query, fields, data):
 
 # Helper function for multiple deletions
 def prepare_and_execute_multi_deletion(conn, query, ids):
-    sql_query = query
-    values_tuple = [(item,) for item in ids]
-    conn.executemany(sql_query, values_tuple)
+    # Check if the first item in ids is a tuple
+    if isinstance(ids[0], tuple):
+        values_tuple = ids
+    else:
+        values_tuple = [(item,) for item in ids]
+
+    conn.executemany(query, values_tuple)
     
 
 
@@ -144,7 +148,7 @@ class ManifoldDatabase:
         # Create contract_metrics table
         conn.execute("""
         CREATE TABLE IF NOT EXISTS contract_metrics (
-            contractId TEXT PRIMARY KEY,
+            contractId TEXT,
             hasNoShares INTEGER,
             hasShares INTEGER,
             hasYesShares INTEGER,
@@ -158,7 +162,8 @@ class ManifoldDatabase:
             userUsername TEXT,
             userName TEXT,
             lastBetTime INTEGER,
-            retrievedTimestamp INTEGER
+            retrievedTimestamp INTEGER,
+            PRIMARY KEY (contractId, userId) 
         );
         """)
         
@@ -166,13 +171,14 @@ class ManifoldDatabase:
         CREATE TABLE IF NOT EXISTS contract_metrics_from (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             contractId TEXT,
+            userId TEXT,
             period TEXT,
             value REAL,
             profit REAL,
             invested REAL,
             prevValue REAL,
             profitPercent REAL,
-            FOREIGN KEY (contractId) REFERENCES contract_metrics(contractId)
+            FOREIGN KEY (contractId, userId) REFERENCES contract_metrics(contractId, userId)
         ); 
         """)
 
@@ -181,9 +187,10 @@ class ManifoldDatabase:
         CREATE TABLE IF NOT EXISTS contract_metrics_totalShares (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             contractId TEXT,
+            userId TEXT,
             outcome TEXT,
             numberOfShares REAL,
-            FOREIGN KEY (contractId) REFERENCES contract_metrics(contractId)
+            FOREIGN KEY (contractId, userId) REFERENCES contract_metrics(contractId, userId)
         ); 
         """)
 
@@ -441,35 +448,37 @@ class ManifoldDatabase:
                 # Delete entries
                 prepare_and_execute_multi_deletion(
                     conn=conn,
-                    query="DELETE FROM contract_metrics_from WHERE contractId = ?",
-                    ids=[contract_metric["id"] for contract_metric in contract_metrics]
+                    query="DELETE FROM contract_metrics_from WHERE contractId = ? AND userId = ?",
+                    ids=[(contract_metric["contractId"], contract_metric["userId"]) for contract_metric in contract_metrics]
                 )
                 
-                from_fields = ["contractId", "period", "value", "profit", "invested", "prevValue", "profitPercent"]
+                from_fields = ["contractId", "userId", "period", "value", "profit", "invested", "prevValue", "profitPercent"]
                 prepare_and_execute_multi_upsert(
                     query="INSERT OR REPLACE INTO contract_metrics_from ({fields}) VALUES ({placeholders})",
                     fields=from_fields,
                     data=[
                         {**from_vals,
-                         "contractId": contract_metric.get("id", None),
+                         "contractId": contract_metric.get("contractId", None),
+                         "userId": contract_metric.get("userId", None), 
                          "period": period} for contract_metric in contract_metrics for period, from_vals in contract_metric.get("from", {}).items()]
                 )
 
                 # Delete entries
                 prepare_and_execute_multi_deletion(
                     conn=conn,
-                    query="DELETE FROM contract_metrics_totalShares WHERE contractId = ?",
-                    ids=[contract_metric["id"] for contract_metric in contract_metrics]
+                    query="DELETE FROM contract_metrics_totalShares WHERE contractId = ? AND userId = ?",
+                    ids=[(contract_metric["contractId"], contract_metric["userId"]) for contract_metric in contract_metrics]
                 )
                 
-                total_shares_fields = ["contractId", "outcome", "numberOfShares"]
+                total_shares_fields = ["contractId", "userId", "outcome", "numberOfShares"]
                 prepare_and_execute_multi_upsert(
                     conn=conn,
                     query="INSERT OR REPLACE INTO contract_metrics_totalShares ({fields}) VALUES ({placeholders})",
                     fields=total_shares_fields,
                     data=[
                         {
-                         "contractId": contract_metric.get("id", None),
+                         "contractId": contract_metric.get("contractId", None),
+                         "userId": contract_metric.get("userId", None),
                          "outcome": outcome,
                          "numberOfShares": numberOfShares
                          } for contract_metric in contract_metrics for outcome, numberOfShares in contract_metric.get("totalShares", {}).items()]

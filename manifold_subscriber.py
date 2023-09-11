@@ -72,7 +72,7 @@ class ManifoldSubscriber():
 		'''
 		Retrieves the (LiteUser) profile of a user by their userId and updates the manifold database with the fetched data.
 
-		:param userId: The ID of the user to be fetched.
+		:param userId: The Id of the user to be fetched.
   
 		NOTE: This function is blocking.
 		'''
@@ -80,28 +80,47 @@ class ManifoldSubscriber():
 		self.manifold_db_writer.queue_write_operation(function=self.manifold_db.upsert_users, users=[user]).result()
 
 	
-	def subscribe_to_user_bets(self, userId, polling_time=60, callback=None):
-		''' 
-  		Continuously retrieves the bets of a user by their userid and updates the manifold database with it.
-		
+	def subscribe_to_bets(self, userId=None, username=None, contractId=None, contractSlug=None, polling_time=60, callback=None):
+		'''Continuously retrieves the bets via a single value or combination of:
+
+    	- userId
+    	- username
+     	- contractId
+     	- contractSlug 
+      
+        and updates the manifold database with it.
+
+		:param userId: The Id of the user.
+		:param username: The username of the user.
+		:param contractId: The Id of the contract.
+		:param contractSlug: The URL slug of the contract. 
 		:param polling_time: The number of seconds between updates. Default is 60 seconds.
 		:param callback: Optional. The function to be called when the job finishes.
 		:returns: job. The apscheduler job object.
 		'''
-		job = self.scheduler.add_job(func=self.update_user_bets, args=(userId), trigger='interval', seconds=polling_time)
+		job = self.scheduler.add_job(func=self.update_user_bets, args=(userId, username, contractId, contractSlug), trigger='interval', seconds=polling_time)
 		if callback:
 			self.register_callback(job.id, callback)
 		return job
 
-	def update_user_bets(self, userId):
+	def update_bets(self, userId=None, username=None, contractId=None, contractSlug=None):
 		'''
 		Retrieves the bets of a user by their userId and updates the manifold database with the fetched data.
 
-		:param userId: The ID of the user whose bets are to be fetched.
+		:param userId: Optional. If set, the response will include only bets created by this user.
+		:param username: Optional. If set, the response will include only bets created by this user.
+		:param contractId: Optional. If set, the response will only include bets on this contract.
+		:param contractSlug: Optional. If set, the response will only include bets on this contract.
   
 		NOTE: This function is blocking.
 		'''
-		bets = self.manifold_api.retrieve_all_data(api_call_func=self.manifold_api.get_bets, max_limit=1000, api_params={"userId": userId})
+  
+		# Use locals to get the current local variables as a dictionary
+		api_params = locals().copy()
+		# Remove the 'self' key
+		api_params.pop('self') 
+
+		bets = self.manifold_api.retrieve_all_data(api_call_func=self.manifold_api.get_bets, max_limit=1000, **api_params)
 		self.manifold_db_writer.queue_write_operation(function=self.manifold_db.upsert_bets, bets=bets).result()
 
 	

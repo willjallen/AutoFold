@@ -536,8 +536,7 @@ class ManifoldDatabase:
                 conn=conn,
                 query="INSERT OR REPLACE INTO bet_fees ({fields}) VALUES ({placeholders})",
                 fields=fee_fields,
-                data=[{**fee,
-                       "betId": bet["id"]} for bet in bets for fee in bet.get("fees", [])]
+                data=[{**bet["fees"], "betId": bet["id"]} for bet in bets if "fees" in bet]
             )
 
             # Delete entries
@@ -553,6 +552,7 @@ class ManifoldDatabase:
                 query="INSERT OR REPLACE INTO bet_fills ({fields}) VALUES ({placeholders})",
                 fields=fill_fields,
                 data=[{**fill, "betId": bet["id"]} for bet in bets for fill in bet.get("fills", [])]
+
             )
             
             # Commit transaction

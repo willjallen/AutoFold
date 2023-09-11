@@ -107,6 +107,8 @@ class ManifoldSubscriber():
 	
 	def subscribe_to_market_positions(self, marketId, userId=None, polling_time=60, callback=None):
 		''' 
+		NOTE: Due to https://github.com/manifoldmarkets/manifold/issues/2031 this function will only subscribe to the top 4000 positions ranked by profit.
+
   		Continuously retrieves the positions of a market by its marketId and updates the manifold database with it. Optionally tracks a single user's positions.
 	
 		:param marketId: The id of the market
@@ -122,6 +124,8 @@ class ManifoldSubscriber():
 
 	def update_market_positions(self, marketId, userId=None):
 		'''
+		NOTE: Due to https://github.com/manifoldmarkets/manifold/issues/2031 this function will only retrieve to the top 4000 positions ranked by profit.
+
 		Retrieves the positions of a market by its marketId, and optionally for a specific user, then updates the manifold database with the fetched data.
 
 		:param marketId: The ID of the market whose positions are to be fetched.
@@ -129,14 +133,14 @@ class ManifoldSubscriber():
   
 		NOTE: This function is blocking.
 		'''
-		contract_metrics = self.manifold_api.get_market_positions(marketId=marketId, userId=userId).result()
+		contract_metrics = self.manifold_api.get_market_positions(marketId=marketId, order='profit', top=4000, userId=userId).result()
 		self.manifold_db_writer.queue_write_operation(function=self.manifold_db.upsert_contract_metrics, contract_metrics=contract_metrics).result()
 
 	def subscribe_to_market_position_bets(self, contractId, userId=None, polling_time=60, callback=None):
 		'''
   		Continuously retrieves the bets of contracts(positions) in a market by contractId and updates the manifold database with it. Optionally tracks a single user's positions in a market.
 	
-		:param marketId: The id of the market
+		:param contractId: The id of the market.
 		:param userId: Optional. Tracks the positions of a specific user in a market.
 		:param polling_time: The number of seconds between updates. Default is 60 seconds.
 		:param callback: Optional. The function to be called when the job finishes.

@@ -18,7 +18,10 @@ def main():
     
     manifold_subscriber = ManifoldSubscriber(manifold_api, manifold_db, manifold_db_writer)
     
-    bot = Bot(manifold_api, manifold_db_reader, manifold_subscriber, [])
+    # manifold_subscriber.update_all_users() 
+    # manifold_subscriber.update_all_markets()
+    
+    bot = Bot(manifold_api, manifold_db_reader, manifold_subscriber)
     
     bot.start()
     

@@ -40,7 +40,7 @@ class Bot:
 			strategy_filename = strategy_info["filename"]
 			strategy_class = get_strategy_class_from_file(strategy_filename)
 			if strategy_class:
-				strategy_objects[strategy_name] = strategy_class(manifold_api=self.manifold_api, manifold_db_reader=self.manifold_db_reader, manifold_subscriber=self.manifold_subscriber)  # Instantiate as needed with any parameters
+				strategy_objects[strategy_name] = strategy_class(bot=self, manifold_api=self.manifold_api, manifold_db_reader=self.manifold_db_reader, manifold_subscriber=self.manifold_subscriber)  # Instantiate as needed with any parameters
 
 		print(strategy_objects)
 
@@ -49,17 +49,17 @@ class Bot:
 		self.id = self.me["id"]
   
 		# Set default subscribers
-		self.bot_user_info_update_interval = self.config["bot"]["bot_user_info_update_interval"]
-		if self.bot_user_info_update_interval != -1:
-			self.manifold_subscriber.subscribe_to_user_info(userId=self.id, polling_time=self.bot_user_info_update_interval)
+		# self.bot_user_info_update_interval = self.config["bot"]["bot_user_info_update_interval"]
+		# if self.bot_user_info_update_interval != -1:
+		# 	self.manifold_subscriber.subscribe_to_user_info(userId=self.id, polling_time=self.bot_user_info_update_interval)
 
-		self.all_users_update_interval = self.config["bot"]["all_users_update_interval"]
-		if self.all_users_update_interval != -1:
-			self.manifold_subscriber.subscribe_to_all_users(polling_time=self.all_users_update_interval)
+		# self.all_users_update_interval = self.config["bot"]["all_users_update_interval"]
+		# if self.all_users_update_interval != -1:
+		# 	self.manifold_subscriber.subscribe_to_all_users(polling_time=self.all_users_update_interval)
 
-		self.all_markets_update_interval = self.config["bot"]["all_markets_update_interval"]
-		if self.all_markets_update_interval != -1:
-			self.manifold_subscriber.subscribe_to_all_markets(polling_time=self.all_markets_update_interval)
+		# self.all_markets_update_interval = self.config["bot"]["all_markets_update_interval"]
+		# if self.all_markets_update_interval != -1:
+		# 	self.manifold_subscriber.subscribe_to_all_markets(polling_time=self.all_markets_update_interval)
 
 		self.scheduler = BackgroundScheduler({
 
@@ -71,21 +71,21 @@ class Bot:
 			'apscheduler.job_defaults.max_instances': '1',
 			'apscheduler.timezone': 'UTC',
 		})
+
+		for strategy_name, strategy_class in strategy_objects.items():
+			self.scheduler.add_job(func=strategy_class.run)
   
 		
-
-  
 	def start(self):
 		self.scheduler.start()
   
 	def stop(self):
 		self.scheduler.shutdown()
 
-	def update_all_users(self):
+	def get_id():
+		pass
+ 
+	def get_bot_user_info():
 		pass
 
-	def update_all_markets(self):
-		pass
-		
-  
-  
+	

@@ -1,4 +1,5 @@
 from collections import defaultdict
+from typing import List, Callable, Dict, DefaultDict
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
 from manifold_api import ManifoldAPI
@@ -23,13 +24,16 @@ class ManifoldSubscriber():
 		})
   
 		# Dictionary to store job callbacks, defaulting to an empty list for each job ID
-		self.callbacks = defaultdict(list)
+		self.callbacks: DefaultDict[str, List[Callable]] = defaultdict(list)
 		
 		# Add listener to the scheduler
 		self.scheduler.add_listener(self.job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
   
 		self.scheduler.start()
   
+	def shutdown(self):
+		self.scheduler.remove_listener(self.job_listener)
+		self.scheduler.shutdown(wait=True)
 
 	def job_listener(self, event):
 		'''

@@ -1,5 +1,6 @@
 import json
 import time
+from loguru import logger
 import requests
 from datetime import datetime
 import threading
@@ -37,32 +38,48 @@ BETS_PER_MINUTE = 5
 
 class ManifoldAPI():
 	def __init__(self):
+		logger.debug("Initializing ManifoldAPI") 
 		self.bets_queue = Queue(maxsize=1000)
 		self.reads_queue = Queue(maxsize=1000) 
 		self.log_buffer = []
 		self.bet_timestamps = []
   
-		self.executor = ThreadPoolExecutor(max_workers=50)
-	 
+		self.executor = ThreadPoolExecutor(thread_name_prefix="MF_API", max_workers=50)
+	
+		self.running = True
+  
 		# Start processing the request queues in a separate thread
-		threading.Thread(target=self._process_read_queue, daemon=True).start()
+		self.read_thread = threading.Thread(target=self._process_read_queue, daemon=True)
+		self.read_thread.start()
 
 		# Start processing the bets queues in a separate thread
-		threading.Thread(target=self._process_bet_queue, daemon=True).start()
+		self.bet_thread = threading.Thread(target=self._process_bet_queue, daemon=True)
+		self.bet_thread.start()
 
-	def _log_api_call(self, endpoint, method, params):
-		self.log_buffer.append({"timestamp": datetime.now().isoformat(), "endpoint": endpoint, "method": method, "params": params})
-		
-		if len(self.log_buffer) >= 1:
-			with open(log_file, "a") as f:
-				for log in self.log_buffer:
-					json.dump(log, f)
-					f.write('\n')
-			self.log_buffer = []
+	def shutdown(self):
+		logger.info("Shutting down ManifoldAPI") 
+		self.running = False
+		self.read_thread.join()
+		self.bet_thread.join()
+		self.executor.shutdown(wait=False)
+  
+		# Set futures to exceptions
+		while not self.reads_queue.empty():
+			_, _, _, future = self.reads_queue.get()
+			future.set_exception(Exception("API is shutting down"))
+		while not self.bets_queue.empty():
+			_, _, _, future = self.bets_queue.get()
+			future.set_exception(Exception("API is shutting down")) 
 
 	def _make_request(self, endpoint, method="GET", params=None, future=None):
 		headers = {"Authorization": f"Key {api_key}"}
-		self._log_api_call(endpoint, method, params)
+		log_data = {
+				"timestamp": datetime.now().isoformat(),
+				"endpoint": endpoint,
+				"method": method,
+				"params": params
+			}
+		logger.debug(f"API call: {json.dumps(log_data)}")
 
 		try:
 			if method == "GET":
@@ -71,19 +88,19 @@ class ManifoldAPI():
 				response = requests.post(endpoint, headers=headers, json=params)
 
 			if response.status_code != 200:
-				print(type(response.json()))
-				print(f"Error: {response.status_code}, {response.json}")
+				logger.error(f"Error in API call: {response.status_code}, {response.json}")
 				if future:
 					future.set_exception(Exception(f"HTTP Error: {response.status_code}"))
 			else:
 				if future:
 					future.set_result(response.json())
 		except Exception as e:
+			logger.error(f"Exception occurred while making a request: {e}") 
 			if future:
 				future.set_exception(e)
 				
 	def _process_read_queue(self):
-		while True:
+		while self.running:
 			# Process read requests
 			reads_counter = 0
 			while reads_counter < REQUESTS_PER_SECOND and not self.reads_queue.empty():
@@ -94,7 +111,7 @@ class ManifoldAPI():
 			time.sleep(1)
 
 	def _process_bet_queue(self):
-		while True:
+		while self.running:
 			bets_counter = 0	
 			# Process bet requests if we can
 			while len(self.bet_timestamps) < BETS_PER_MINUTE and not self.bets_queue.empty():
@@ -104,8 +121,7 @@ class ManifoldAPI():
     
 			time.sleep(60)
 
-	@staticmethod
-	def retrieve_all_data(api_call_func, max_limit=1000, **api_params):
+	def retrieve_all_data(self, api_call_func, max_limit=1000, **api_params):
 		"""
 		Iteratively retrieves all available data from an API endpoint that supports pagination via a `before` parameter.
 
@@ -117,11 +133,15 @@ class ManifoldAPI():
   
 		Note: This function is blocking.
 		"""
+  
+		logger.debug(f"Starting retrieve_all_data") 
 		all_data = []
 		last_item_id = None
 		has_more_data = True
 		
 		while has_more_data:
+			if not self.running:
+				raise Exception("retrieve_all_data interrupted by thread exit")
 			try:
 				# Include the 'before' parameter if we have a last_item_id to work with
 				if last_item_id:
@@ -138,7 +158,7 @@ class ManifoldAPI():
 				else:
 					has_more_data = False
 			except Exception as e:
-				print(f"An error occurred: {e}")
+				logger.error(f"An error occurred during retrieve_all_data: {e}")
 				has_more_data = False
 
 		return all_data   
@@ -520,22 +540,6 @@ class ManifoldAPI():
 		if value: params["value"] = value
 
 		self.bets_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/market/{marketId}/resolve", "POST", params, future))
-		return future
-
-
-	def cancel_bet(self, betId):
-		'''
-		POST /v0/bet/cancel/[betId]
-
-		Cancel the limit order of a bet with the specified id.
-  
-		Parameters:
-		id: required. The id of the bet.
-
-		Note: This action is irreversible. 
-		'''
-		future = Future()
-		self.bets_queue.put((f"{DEV_DOMAIN if DEVELOPMENT_MODE else MAIN_DOMAIN}/api/v0/bet/cancel/{betId}", "POST", None, future))
 		return future
 
 	def sell_shares(self, marketId, outcome=None, shares=None):

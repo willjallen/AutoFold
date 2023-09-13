@@ -592,7 +592,10 @@ class ManifoldDatabaseReader:
 class ManifoldDatabaseWriter:
     def __init__(self, manifold_db):
         self.manifold_db = manifold_db
-        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)  # Only one writer at a time for thread safety
+        self.executor = concurrent.futures.ThreadPoolExecutor(thread_name_prefix="MF_DB_WRITE", max_workers=1)  # Only one writer at a time for thread safety
+
+    def shutdown(self):
+        self.executor.shutdown(wait=True)
 
     def queue_write_operation(self, function, *args, **kwargs):
         """

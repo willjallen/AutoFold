@@ -33,12 +33,36 @@ Comments placed through the API will incur a M1 transaction fee.
 API interface is most recent with 2023-05-15 on changelog.
 '''
 
-REQUESTS_PER_SECOND = 60
+READS_PER_SECOND = 100
 BETS_PER_MINUTE = 5
+
+class TokenBucket:
+	def __init__(self, tokens, fill_rate):
+		""" Tokens is the total tokens in the bucket. fill_rate is the rate in tokens/second."""
+		self.capacity = tokens
+		self._tokens = tokens
+		self.fill_rate = fill_rate
+		self.timestamp = time.time()
+
+	def consume(self, tokens):
+		""" Consume tokens from the bucket. Returns 0 if there are sufficient tokens, otherwise the expected time to wait in seconds."""
+		if tokens > self._tokens:
+			return (tokens - self._tokens) / self.fill_rate
+		self._tokens -= tokens
+		return 0
+
+	def refill(self):
+		""" Add new tokens to the bucket."""
+		now = time.time()
+		delta = self.fill_rate * (now - self.timestamp)
+		self._tokens = min(self.capacity, self._tokens + delta)
+		self.timestamp = now
 
 class ManifoldAPI():
 	def __init__(self):
 		logger.debug("Initializing ManifoldAPI") 
+		self.reads_bucket = TokenBucket(100, READS_PER_SECOND) 
+		self.bets_bucket = TokenBucket(10, BETS_PER_MINUTE/60.0) 
 		self.bets_queue = Queue(maxsize=1000)
 		self.reads_queue = Queue(maxsize=1000) 
 		self.log_buffer = []
@@ -102,24 +126,23 @@ class ManifoldAPI():
 	def _process_read_queue(self):
 		while self.running:
 			# Process read requests
-			reads_counter = 0
-			while reads_counter < REQUESTS_PER_SECOND and not self.reads_queue.empty():
+			while not self.reads_queue.empty():
+				wait_time = self.reads_bucket.consume(1)
+				if wait_time > 0:
+					time.sleep(wait_time)
 				endpoint, method, params, future = self.reads_queue.get()
 				self.executor.submit(self._make_request, endpoint, method, params, future)
-				reads_counter += 1
-			
-			time.sleep(1)
+
 
 	def _process_bet_queue(self):
 		while self.running:
-			bets_counter = 0	
 			# Process bet requests if we can
-			while len(self.bet_timestamps) < BETS_PER_MINUTE and not self.bets_queue.empty():
+			while not self.bets_queue.empty():
+				wait_time = self.bets_bucket.consume(1)
+				if wait_time > 0:
+					time.sleep(wait_time)
 				endpoint, method, params, future = self.bets_queue.get()
 				self.executor.submit(self._make_request, endpoint, method, params, future)
-				bets_counter += 1	
-    
-			time.sleep(60)
 
 	def retrieve_all_data(self, api_call_func, max_limit=1000, **api_params):
 		"""
@@ -229,7 +252,7 @@ class ManifoldAPI():
 		Gets a group by its slug.
 		
   		Note: group is singular in the URL.
-    
+	
 		Paramaters:
 		groupSlug: Required. The slug of the group.
 		'''

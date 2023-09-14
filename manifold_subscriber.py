@@ -1,3 +1,4 @@
+from loguru import logger
 from collections import defaultdict
 from typing import List, Callable, Dict, DefaultDict
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -18,7 +19,7 @@ class ManifoldSubscriber():
 				'class': 'apscheduler.executors.pool:ThreadPoolExecutor',
 				'max_workers': '20'
 			},
-			'apscheduler.job_defaults.coalesce': 'false',
+			'apscheduler.job_defaults.coalesce': 'true',
 			'apscheduler.job_defaults.max_instances': '1',
 			'apscheduler.timezone': 'UTC',
 		})
@@ -32,8 +33,10 @@ class ManifoldSubscriber():
 		self.scheduler.start()
   
 	def shutdown(self):
+		logger.debug("Shutting down manifold subscriber")
 		self.scheduler.remove_listener(self.job_listener)
 		self.scheduler.shutdown(wait=True)
+		logger.debug("Manifold subscriber shut down")
 
 	def job_listener(self, event):
 		'''
@@ -47,6 +50,7 @@ class ManifoldSubscriber():
 		'''
 		Register a callback function for a specific job ID
 		'''
+		logger.debug(f"Adding callback {callback.__name__} to job id {job_id}")
 		self.callbacks[job_id].append(callback)
 
 	def unregister_callback(self, job_id, callback):
@@ -54,6 +58,7 @@ class ManifoldSubscriber():
 		Unregister a specific callback function for a specific job ID
 		'''
 		if callback in self.callbacks[job_id]:
+			logger.debug(f"Removing callback {callback.__name__} from job id {job_id}")
 			self.callbacks[job_id].remove(callback)
 			# If no more callbacks for this job ID, delete the job ID entry
 			if not self.callbacks[job_id]:
@@ -67,6 +72,7 @@ class ManifoldSubscriber():
 		:param callback: Optional. The function to be called when the job finishes.
 		:returns: job. The apscheduler job object.
 		'''
+		logger.debug(f"Subscribing to profile of user {userId} with polling time {polling_time} seconds")
 		job = self.scheduler.add_job(func=self.update_user_info, args=(userId), trigger='interval', seconds=polling_time)
 		if callback:
 			self.register_callback(job.id, callback)
@@ -80,6 +86,7 @@ class ManifoldSubscriber():
   
 		NOTE: This function is blocking.
 		'''
+		logger.debug(f"Updating profile for user {userId}")
 		user = self.manifold_api.get_user_by_id(userId=userId).result()
 		self.manifold_db_writer.queue_write_operation(function=self.manifold_db.upsert_users, users=[user]).result()
 
@@ -96,12 +103,13 @@ class ManifoldSubscriber():
 
 		:param userId: The Id of the user.
 		:param username: The username of the user.
-		:param contractId: The Id of the contract.
-		:param contractSlug: The URL slug of the contract. 
+		:param contractId: The Id of the contract (market).
+		:param contractSlug: The URL slug of the contract (market). 
 		:param polling_time: The number of seconds between updates. Default is 60 seconds.
 		:param callback: Optional. The function to be called when the job finishes.
 		:returns: job. The apscheduler job object.
 		'''
+		logger.debug(f"Subscribing to bets with userId={userId}, username={username}, contractId={contractId}, contractSlug={contractSlug}, and polling_time={polling_time} seconds with callback {callback.__name__ if callback else None}.")
 		job = self.scheduler.add_job(func=self.update_user_bets, args=(userId, username, contractId, contractSlug), trigger='interval', seconds=polling_time)
 		if callback:
 			self.register_callback(job.id, callback)
@@ -118,6 +126,7 @@ class ManifoldSubscriber():
   
 		NOTE: This function is blocking.
 		'''
+		logger.debug(f"Updating bets with userId={userId}, username={username}, contractId={contractId} and contractSlug={contractSlug}")
   
 		# Use locals to get the current local variables as a dictionary
 		api_params = locals().copy()
@@ -140,6 +149,9 @@ class ManifoldSubscriber():
 		:param callback: Optional. The function to be called when the job finishes.
 		:returns: job. The apscheduler job object.
 		'''
+  
+		logger.debug(f"Subscribing to market positions for marketId={marketId} and userId={userId} with a polling time of {polling_time} seconds and callback {callback.__name__ if callback else None}")
+  
 		job = self.scheduler.add_job(func=self.update_market_positions, args=(marketId, userId), trigger='interval', seconds=polling_time)
 		if callback:
 			self.register_callback(job.id, callback)
@@ -156,33 +168,11 @@ class ManifoldSubscriber():
   
 		NOTE: This function is blocking.
 		'''
+  
+		logger.debug(f"Updating market positios for marketId={marketId} and userId={userId}")
+  
 		contract_metrics = self.manifold_api.get_market_positions(marketId=marketId, order='profit', top=4000, userId=userId).result()
 		self.manifold_db_writer.queue_write_operation(function=self.manifold_db.upsert_contract_metrics, contract_metrics=contract_metrics).result()
-
-	def subscribe_to_market_position_bets(self, contractId, userId=None, polling_time=60, callback=None):
-		'''
-  		Continuously retrieves the bets of contracts(positions) in a market by contractId and updates the manifold database with it. Optionally tracks a single user's positions in a market.
-	
-		:param contractId: The id of the market.
-		:param userId: Optional. Tracks the positions of a specific user in a market.
-		:param polling_time: The number of seconds between updates. Default is 60 seconds.
-		:param callback: Optional. The function to be called when the job finishes.
-		:returns: job. The apscheduler job object.
-		'''
-		job = self.scheduler.add_job(func=self.update_market_position_bets, args=(contractId, userId), trigger='interval', seconds=polling_time)
-		if callback:
-			self.register_callback(job.id, callback)
-		return job 
-
-	def update_market_position_bets(self, contractId, userId):
-		'''
-		Retrieves the bets of contracts(positions) in a market by contractId and updates the manifold database with it. Optionally tracks a single user's positions in a market. 
-		:param contractId: The id of the contract.
-		:param userId: Optional. Tracks the positions of a specific user in a market contract.
-		NOTE: This function is blocking.
-		''' 
-		bets = self.manifold_api.get_bets(contractId=contractId, userId=userId).result()
-		self.manifold_db_writer.queue_write_operation(function=self.manifold_db.upsert_bets, bets=bets).result()
 
 	def subscribe_to_all_users(self, polling_time=3600, callback=None):
 		''' 
@@ -192,6 +182,9 @@ class ManifoldSubscriber():
 		:param callback: Optional. The function to be called when the job finishes.
 		:returns: job. The apscheduler job object.
 		'''
+	
+		logger.debug(f"Subscribing to profiles of all users with polling time {polling_time} seconds and callback {callback.__name__ if callback else None}")
+  
 		job = self.scheduler.add_job(func=self.update_all_users, trigger='interval', seconds=polling_time)
 		if callback:
 			self.register_callback(job.id, callback)
@@ -202,6 +195,9 @@ class ManifoldSubscriber():
 		Retrieves the (LiteUser) profile of all users and updates the manifold database with the fetched data.
 		NOTE: This function is blocking.
 		''' 
+	
+		logger.debug(f"Updating profiles of all users")
+  
 		users = self.manifold_api.retrieve_all_data(self.manifold_api.get_users, max_limit=1000)
 		self.manifold_db_writer.queue_write_operation(function=self.manifold_db.upsert_users, users=users).result()
 
@@ -215,6 +211,9 @@ class ManifoldSubscriber():
   
 		NOTE: Currently only supports binary choice and multiple choice markets
 		'''
+  
+		logger.debug(f"Subscribing to all markets with polling time {polling_time} seconds and callback {callback.__name__ if callback else None}")
+  
 		job = self.scheduler.add_job(func=self.update_all_markets, trigger='interval', seconds=polling_time)
 		if callback:
 			self.register_callback(job.id, callback)
@@ -227,6 +226,9 @@ class ManifoldSubscriber():
 		NOTE: Currently only supports binary choice and multiple choice markets 
 		NOTE: This function is blocking.
 		''' 
+	
+		logger.debug("Updating all markets")
+  
 		markets = self.manifold_api.retrieve_all_data(self.manifold_api.get_markets, max_limit=1000)
 		binary_choice_markets = []
 		multiple_choice_markets = []

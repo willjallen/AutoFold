@@ -68,7 +68,7 @@ class ManifoldAPI():
 		self.log_buffer = []
 		self.bet_timestamps = []
   
-		self.executor = ThreadPoolExecutor(thread_name_prefix="MF_API", max_workers=50)
+		self.executor = ThreadPoolExecutor(thread_name_prefix="MF_API", max_workers=5)
 	
 		self.running = True
   
@@ -107,9 +107,9 @@ class ManifoldAPI():
 
 		try:
 			if method == "GET":
-				response = requests.get(endpoint, headers=headers, params=params)
+				response = requests.get(endpoint, headers=headers, params=params, timeout=5)
 			elif method == "POST":
-				response = requests.post(endpoint, headers=headers, json=params)
+				response = requests.post(endpoint, headers=headers, json=params, timeout=5)
 
 			if response.status_code != 200:
 				logger.error(f"Error in API call: {response.status_code}, {response.json}")
@@ -125,6 +125,9 @@ class ManifoldAPI():
 				
 	def _process_read_queue(self):
 		while self.running:
+
+			self.reads_bucket.refill() 
+
 			# Process read requests
 			while not self.reads_queue.empty():
 				wait_time = self.reads_bucket.consume(1)
@@ -133,9 +136,14 @@ class ManifoldAPI():
 				endpoint, method, params, future = self.reads_queue.get()
 				self.executor.submit(self._make_request, endpoint, method, params, future)
 
+			time.sleep(0.1)  # Sleep 100 milliseconds if the queue is empty 
+
 
 	def _process_bet_queue(self):
 		while self.running:
+      
+			self.bets_bucket.refill() 
+
 			# Process bet requests if we can
 			while not self.bets_queue.empty():
 				wait_time = self.bets_bucket.consume(1)
@@ -143,6 +151,9 @@ class ManifoldAPI():
 					time.sleep(wait_time)
 				endpoint, method, params, future = self.bets_queue.get()
 				self.executor.submit(self._make_request, endpoint, method, params, future)
+    
+			time.sleep(0.1)  # Sleep 100 milliseconds if the queue is empty 
+    
 
 	def retrieve_all_data(self, api_call_func, max_limit=1000, **api_params):
 		"""

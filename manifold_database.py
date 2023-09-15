@@ -1,4 +1,7 @@
-import json
+from loguru import logger
+import threading
+import queue
+import concurrent.futures
 import sqlite3
 import threading
 import time
@@ -7,11 +10,20 @@ from utils.str_utils import collapse_list_of_strings_to_string
 import concurrent.futures
 
 # Helper function for multiple upserts
+def sanitize_value(value):
+        if isinstance(value, float):
+            return round(value, 4) 
+        elif isinstance(value, int) and (value > 2**63 - 1 or value < -2**63):
+            logger.error(f"Integer {value} is too large to store in SQLite. Setting it to 2**63 - 1")
+            return 2**63 - 1
+        # You can add more sanitation logic as needed
+        return value
+
 def prepare_and_execute_multi_upsert(conn, query, fields, data):
     query_fields = ", ".join(fields)
     query_placeholders = ", ".join("?" for _ in fields)
     sql_query = query.format(fields=query_fields, placeholders=query_placeholders)
-    values_tuple = [tuple(data.get(field, None) for field in fields) for data in data]
+    values_tuple = [tuple(sanitize_value(data.get(field, None)) for field in fields) for data in data]
     conn.executemany(sql_query, values_tuple)
 
 # Helper function for multiple deletions
@@ -39,7 +51,7 @@ class ManifoldDatabase:
 
     def create_tables(self):
         conn = self.get_conn()
-        
+        logger.debug("Creating tables") 
         '''
         ########################################################
         ####                    USERS                       ####
@@ -257,6 +269,8 @@ class ManifoldDatabase:
         # Get database connection
         conn = self.get_conn()
         
+        logger.debug(f"Upserting {len(users)} users")
+        
         # Current UNIX epoch time for all markets in this batch
         current_time = int(time.time())
         
@@ -287,8 +301,10 @@ class ManifoldDatabase:
             conn.commit()
     
         except sqlite3.Error as e:
-            print("Database error in upset_users:", e)
+            logger.error("Database error in upset_users:", e)
             conn.rollback()  # Rollback transaction in case of error        
+
+        logger.debug("Upsert users successful")
 
 
     
@@ -300,51 +316,57 @@ class ManifoldDatabase:
 
     # Upsert Market
     def upsert_binary_choice_markets(self, markets: list[dict], lite=True):
-            # Get database connection
-            conn = self.get_conn()
-            
-            # Current UNIX epoch time for all markets in this batch
-            current_time = int(time.time())
-            
-            # Begin transaction
-            conn.execute("BEGIN TRANSACTION;")
-            
-            try:
-                # Base table fields
-                base_fields = [
-                    "id", "closeTime", "createdTime", "creatorId", "creatorName", 
-                    "creatorUsername", "isResolved", "lastUpdatedTime", "mechanism", 
-                    "outcomeType", "p", "probability", "question", "textDescription", 
-                    "totalLiquidity", "volume", "volume24Hours", "url", "pool_NO",
-                    "pool_YES", "groupSlugs", "retrievedTimestamp", "lite"
-                ]
-                
-                # Insert or Replace into the base table
-                prepare_and_execute_multi_upsert(
-                    conn=conn,
-                    query="INSERT OR REPLACE INTO binary_choice_markets ({fields}) VALUES ({placeholders})",
-                    fields=base_fields,
-                    data=[
-                        {**market, 
-                        "retrievedTimestamp": current_time,
-                        "lite": int(lite),
-                        "groupSlugs": collapse_list_of_strings_to_string(market.get("groupSlugs", "")),
-                        "pool_NO": market.get("pool", {}).get("NO", None),
-                        "pool_YES": market.get("pool", {}).get("YES", None)
-                        } for market in markets],
-                )
-                
-                # Commit transaction
-                conn.commit()
+        # Get database connection
+        conn = self.get_conn()
         
-            except sqlite3.Error as e:
-                print("Database error in upsert_binary_choice_markets:", e)
-                conn.rollback()  # Rollback transaction in case of error
+        logger.debug(f"Upserting {len(markets)} binary choice markets")
+        
+        # Current UNIX epoch time for all markets in this batch
+        current_time = int(time.time())
+        
+        # Begin transaction
+        conn.execute("BEGIN TRANSACTION;")
+        
+        try:
+            # Base table fields
+            base_fields = [
+                "id", "closeTime", "createdTime", "creatorId", "creatorName", 
+                "creatorUsername", "isResolved", "lastUpdatedTime", "mechanism", 
+                "outcomeType", "p", "probability", "question", "textDescription", 
+                "totalLiquidity", "volume", "volume24Hours", "url", "pool_NO",
+                "pool_YES", "groupSlugs", "retrievedTimestamp", "lite"
+            ]
+            
+            # Insert or Replace into the base table
+            prepare_and_execute_multi_upsert(
+                conn=conn,
+                query="INSERT OR REPLACE INTO binary_choice_markets ({fields}) VALUES ({placeholders})",
+                fields=base_fields,
+                data=[
+                    {**market, 
+                    "retrievedTimestamp": current_time,
+                    "lite": int(lite),
+                    "groupSlugs": collapse_list_of_strings_to_string(market.get("groupSlugs", "")),
+                    "pool_NO": market.get("pool", {}).get("NO", None),
+                    "pool_YES": market.get("pool", {}).get("YES", None)
+                    } for market in markets],
+            )
+            
+            # Commit transaction
+            conn.commit()
+    
+        except sqlite3.Error as e:
+            logger.error("Database error in upsert_binary_choice_markets:", e)
+            conn.rollback()  # Rollback transaction in case of error
+
+        logger.debug("Upsert binary choice markets successful")
 
 
     def upsert_multiple_choice_markets(self, markets: list[dict], lite=True):
         # Get database connection
         conn = self.get_conn()
+        
+        logger.debug(f"Upserting {len(markets)} markets")
         
         # Current UNIX epoch time for all markets in this batch
         current_time = int(time.time())
@@ -404,10 +426,14 @@ class ManifoldDatabase:
             
             # Commit transaction
             conn.commit()
+            
     
         except sqlite3.Error as e:
-            print("Database error in upsert_multiple_choice_markets:", e)
+            logger.error("Database error in upsert_multiple_choice_markets:", e)
             conn.rollback()  # Rollback transaction in case of error
+            
+        logger.debug("Upsert multiple choice markets successful")
+        
 
         
 
@@ -417,80 +443,87 @@ class ManifoldDatabase:
     ########################################################
     '''
     def upsert_contract_metrics(self, contract_metrics: list[dict]):
-            # Get database connection
-            conn = self.get_conn()
-            
-            # Current UNIX epoch time for all contract_metrics in this batch
-            current_time = int(time.time())
-            
-            # Begin transaction for better performance and data integrity
-            conn.execute("BEGIN TRANSACTION;")
-
-            try:
-
-                # Base table
-                base_fields = [
-                    "contractId", "hasNoShares", "hasShares", "hasYesShares",
-                    "invested", "loan", "maxSharesOutcome", "payout", 
-                    "profit", "profitPercent", "userId", "userUsername", 
-                    "userName", "lastBetTime", "retrievedTimestamp"
-                ]
-                prepare_and_execute_multi_upsert(
-                    conn=conn,
-                    query="INSERT OR REPLACE INTO contract_metrics ({fields}) VALUES ({placeholders})",
-                    fields=base_fields,
-                    data=[
-                        {**metric, "retrievedTimestamp": current_time} for metric in contract_metrics]
-                )
-
-                
-                # Handle nested tables (from and totalShares)
-                # Delete entries
-                prepare_and_execute_multi_deletion(
-                    conn=conn,
-                    query="DELETE FROM contract_metrics_from WHERE contractId = ? AND userId = ?",
-                    ids=[(contract_metric["contractId"], contract_metric["userId"]) for contract_metric in contract_metrics]
-                )
-                
-                from_fields = ["contractId", "userId", "period", "value", "profit", "invested", "prevValue", "profitPercent"]
-                prepare_and_execute_multi_upsert(
-                    conn=conn,
-                    query="INSERT OR REPLACE INTO contract_metrics_from ({fields}) VALUES ({placeholders})",
-                    fields=from_fields,
-                    data=[
-                        {**from_vals,
-                         "contractId": contract_metric.get("contractId", None),
-                         "userId": contract_metric.get("userId", None), 
-                         "period": period} for contract_metric in contract_metrics for period, from_vals in contract_metric.get("from", {}).items()]
-                )
-
-                # Delete entries
-                prepare_and_execute_multi_deletion(
-                    conn=conn,
-                    query="DELETE FROM contract_metrics_totalShares WHERE contractId = ? AND userId = ?",
-                    ids=[(contract_metric["contractId"], contract_metric["userId"]) for contract_metric in contract_metrics]
-                )
-                
-                total_shares_fields = ["contractId", "userId", "outcome", "numberOfShares"]
-                prepare_and_execute_multi_upsert(
-                    conn=conn,
-                    query="INSERT OR REPLACE INTO contract_metrics_totalShares ({fields}) VALUES ({placeholders})",
-                    fields=total_shares_fields,
-                    data=[
-                        {
-                         "contractId": contract_metric.get("contractId", None),
-                         "userId": contract_metric.get("userId", None),
-                         "outcome": outcome,
-                         "numberOfShares": numberOfShares
-                         } for contract_metric in contract_metrics for outcome, numberOfShares in contract_metric.get("totalShares", {}).items()]
-                )
-            
-                # Commit transaction
-                conn.commit()
+        # Get database connection
+        conn = self.get_conn()
         
-            except sqlite3.Error as e:
-                print("Database error in upsert_contract_metrics:", e)
-                conn.rollback()  # Rollback transaction in case of error
+        logger.debug(f"Upserting {len(contract_metrics)} contract metrics")
+        
+        # Current UNIX epoch time for all contract_metrics in this batch
+        current_time = int(time.time())
+        
+        # Begin transaction for better performance and data integrity
+        conn.execute("BEGIN TRANSACTION;")
+
+        try:
+
+            # Base table
+            base_fields = [
+                "contractId", "hasNoShares", "hasShares", "hasYesShares",
+                "invested", "loan", "maxSharesOutcome", "payout", 
+                "profit", "profitPercent", "userId", "userUsername", 
+                "userName", "lastBetTime", "retrievedTimestamp"
+            ]
+            prepare_and_execute_multi_upsert(
+                conn=conn,
+                query="INSERT OR REPLACE INTO contract_metrics ({fields}) VALUES ({placeholders})",
+                fields=base_fields,
+                data=[
+                    {**metric, "retrievedTimestamp": current_time} for metric in contract_metrics]
+            )
+
+            
+            # Handle nested tables (from and totalShares)
+            # Delete entries
+            prepare_and_execute_multi_deletion(
+                conn=conn,
+                query="DELETE FROM contract_metrics_from WHERE contractId = ? AND userId = ?",
+                ids=[(contract_metric["contractId"], contract_metric["userId"]) for contract_metric in contract_metrics]
+            )
+            
+            from_fields = ["contractId", "userId", "period", "value", "profit", "invested", "prevValue", "profitPercent"]
+            
+            # Clean data (some 'from' entries report profit percents of over a trillion, because of buggy invested value tracking. Set anything over 1,000,000% to -1)
+            prepare_and_execute_multi_upsert(
+                conn=conn,
+                query="INSERT OR REPLACE INTO contract_metrics_from ({fields}) VALUES ({placeholders})",
+                fields=from_fields,
+                data=[
+                    {**from_vals,
+                        "profitPercent": 1_000_000 if contract_metric.get("profitPercent", 0) > 1_000_000 else contract_metric.get("profitPercent", 0),
+                        "contractId": contract_metric.get("contractId", None),
+                        "userId": contract_metric.get("userId", None), 
+                        "period": period} for contract_metric in contract_metrics for period, from_vals in contract_metric.get("from", {}).items()]
+            )
+
+            # Delete entries
+            prepare_and_execute_multi_deletion(
+                conn=conn,
+                query="DELETE FROM contract_metrics_totalShares WHERE contractId = ? AND userId = ?",
+                ids=[(contract_metric["contractId"], contract_metric["userId"]) for contract_metric in contract_metrics]
+            )
+            
+            total_shares_fields = ["contractId", "userId", "outcome", "numberOfShares"]
+            prepare_and_execute_multi_upsert(
+                conn=conn,
+                query="INSERT OR REPLACE INTO contract_metrics_totalShares ({fields}) VALUES ({placeholders})",
+                fields=total_shares_fields,
+                data=[
+                    {
+                        "contractId": contract_metric.get("contractId", None),
+                        "userId": contract_metric.get("userId", None),
+                        "outcome": outcome,
+                        "numberOfShares": numberOfShares
+                        } for contract_metric in contract_metrics for outcome, numberOfShares in contract_metric.get("totalShares", {}).items()]
+            )
+        
+            # Commit transaction
+            conn.commit()
+    
+        except sqlite3.Error as e:
+            logger.error("Database error in upsert_contract_metrics:", e)
+            conn.rollback()  # Rollback transaction in case of error
+
+        logger.debug("Upsert contract metrics successful")
 
     '''
     ########################################################
@@ -500,6 +533,8 @@ class ManifoldDatabase:
     def upsert_bets(self, bets: list[dict]):
         # Get database connection
         conn = self.get_conn()
+        
+        logger.debug(f"Upserting {len(bets)} bets")
         
         # Current UNIX epoch time for all bets in this batch
         current_time = int(time.time())
@@ -559,9 +594,10 @@ class ManifoldDatabase:
             conn.commit()
 
         except sqlite3.Error as e:
-            print("Database error in upsert_bets:", e)
+            logger.error("Database error in upsert_bets:", e)
             conn.rollback()  # Rollback transaction in case of error
 
+        logger.debug("Upsert bets successful")
 
 class ManifoldDatabaseReader:
     def __init__(self, manifold_db):
@@ -582,6 +618,8 @@ class ManifoldDatabaseReader:
         """
         conn = self.manifold_db.get_conn()
         
+        logger.debug(f"Executing query {query} with params {params}")
+        
         # Set row factory here so it returns dicts.
         conn.row_factory = self.dict_factory
         
@@ -592,19 +630,57 @@ class ManifoldDatabaseReader:
 class ManifoldDatabaseWriter:
     def __init__(self, manifold_db):
         self.manifold_db = manifold_db
-        self.executor = concurrent.futures.ThreadPoolExecutor(thread_name_prefix="MF_DB_WRITE", max_workers=1)  # Only one writer at a time for thread safety
+        self.write_queue = queue.Queue()
+        self.shutdown_flag = threading.Event()
+        self.chunk_count = {}  # To track the number of chunks related to each future
+        self.worker_thread = threading.Thread(target=self._write_thread, name="MF_DB_WRITE")
+        self.worker_thread.start()
+
+    def _write_thread(self):
+        while not self.shutdown_flag.is_set():
+            try:
+                function, future, data = self.write_queue.get(timeout=1)
+                try:
+                    function(data)
+                    
+                    with threading.Lock():  # Ensure thread-safety when modifying chunk_count
+                        self.chunk_count[future] -= 1
+                        if self.chunk_count[future] == 0:
+                            future.set_result(True)  # Indicate successful processing
+                            del self.chunk_count[future]
+                except Exception as e:
+                    future.set_exception(e)
+                    with threading.Lock():
+                        del self.chunk_count[future]  # If an exception occurs, don't continue to count chunks
+            except queue.Empty:
+                continue
 
     def shutdown(self):
-        self.executor.shutdown(wait=True)
+        logger.debug("Shutting down manifold database writer")
+        self.shutdown_flag.set()
+        self.worker_thread.join()
 
-    def queue_write_operation(self, function, *args, **kwargs):
+    def queue_write_operation(self, function, data):
         """
         Queue a write operation to the database.
 
         :param function: The function to execute (a write function from ManifoldDatabase class).
-        :param args: Arguments for the function.
-        :param kwargs: Keyword arguments for the function.
-        :return: Future object representing the execution of the operation.
+        :param data: The data to write.
+        :return: Future object representing the execution of the operations.
         """
-        future = self.executor.submit(function, *args, **kwargs)
+        logger.debug(f"Queueing write operation {function.__name__} with {len(data)} data items")
+        
+        sublists = self._split_list(data, 10000)
+        future = concurrent.futures.Future()
+
+        with threading.Lock():  # Ensure thread-safety when modifying chunk_count
+            self.chunk_count[future] = len(sublists)
+
+        for sublist in sublists:
+            self.write_queue.put((function, future, sublist))
+        
         return future
+
+    def _split_list(self, input_list, max_size):
+        """Splits the list into sublists of size <= max_size."""
+        return [input_list[i:i + max_size] for i in range(0, len(input_list), max_size)]

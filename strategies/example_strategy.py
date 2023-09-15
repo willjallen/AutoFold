@@ -256,14 +256,14 @@ class ExampleStrategy(Strategy):
 			if outcome not in best_position_shares_dict:
 				logger.info(f"New position taken: {outcome} with {shares} shares.")
 				# Place a bet for the new position
-				self.manifold_api.make_bet(amount=shares, contractId=best_position["contractId"], outcome=outcome)  # you can add limitProb, expiresAt, etc. if needed
+				# self.manifold_api.make_bet(amount=shares, contractId=best_position["contractId"], outcome=outcome)  # you can add limitProb, expiresAt, etc. if needed
 
 		# 2. Check for sold positions
 		for outcome, shares in best_position_shares_dict.items():
 			if outcome not in latest_shares_dict:
 				logger.info(f"Entire position sold: {outcome} with {shares} shares.")
 				# Sell the shares for the sold position
-				self.manifold_api.sell_shares(marketId=best_position["contractId"], outcome=outcome, shares=shares)
+				# self.manifold_api.sell_shares(marketId=best_position["contractId"], outcome=outcome, shares=shares)
 
 		# 3. Check for buy/sell actions on existing positions
 		for outcome, shares in latest_shares_dict.items():
@@ -276,4 +276,4 @@ class ExampleStrategy(Strategy):
 				elif difference < 0:
 					logger.info(f"Sold {-difference} shares of {outcome}.")
 					# Sell the sold shares
-					self.manifold_api.sell_shares(marketId=best_position["contractId"], outcome=outcome, shares=-difference)
+					# self.manifold_api.sell_shares(marketId=best_position["contractId"], outcome=outcome, shares=-difference)

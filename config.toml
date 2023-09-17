@@ -7,7 +7,6 @@ all_markets_update_interval = 3600
 [strategies]
     [strategies.ExampleStrategy]
     filename = "example_strategy.py"
-    run_interval = 60 # in seconds
 
     # Your strategy here
     # [strategies.MyStrategy]

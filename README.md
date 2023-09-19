@@ -35,13 +35,95 @@ Hassle-free and easy to use bot for [Manifold.markets](https://manifold.markets)
 
 ## Usage
 
-You can easily add your own functionality to this bot by creating a new strategy class in `strategies/your_strategy.py` and adding it to the `config.toml`. An example is provided for you in `strategies/example_strategy.py`.
+### Strategies
+
+You can easily add your own functionality to this bot by creating a new strategy class in `strategies/your_strategy.py` and adding it to the `config.toml`. An example is provided for you in `strategies/example_strategy.py`. 
+
+A skeleton template is available in `strategies/template_strategy.py`
+
+An instance of `Bot`, `ManifoldAPI`, `ManifoldDatabaseReader` and `ManifoldSubscriber` is provided to each strategy. 
+
+When the `Bot` is started, it will call the `run()` function for each strategy. Likewise, when the program gets a shutdown signal it will call the `shutdown()` function for each strategy.
+
+### Manifold API
+
+The `ManifoldAPI` class provides a seamless interface to interact with the Manifold.markets API. Below is a quick rundown of its functionality and how to utilize it.
+
+#### Key Features:
+- **Token Bucket Rate Limiting**: The class implements a token-bucket-based rate limiting mechanism to ensure compliance with the Manifold.markets API rate limits.
+- **Asynchronous Execution**: Operations that make API calls are executed asynchronously using Python's `ThreadPoolExecutor`.
+- **Future-based Interface**: The methods in the class return `Future` objects, allowing you to easily handle the results or exceptions once the API call is complete.
+
+#### Using the API:
+
+1. Initialization:
+   Create an instance of the `ManifoldAPI` class.
+   ```python
+   api = ManifoldAPI()
+   ```
+2. Making API Calls:
+    Use the provided methods to make API calls. For example, to get a user by their username:
+    ```python
+    future_result = api.get_user_by_username("sampleUsername")
+    user_data = future_result.result()
+    ```
+3. Retrieving All Data:
+    If you need to fetch all available data from a paginated API endpoint, use the retrieve_all_data method:
+    ```python
+	users = self.manifold_api.retrieve_all_data(self.manifold_api.get_users, max_limit=1000)
+    ```
+    Note that this function returns all of the data instead of a `Future` object and is blocking.
+
+### Manifold Database
+- There are two classes you should use directly: `ManifoldDatabaseReader` and `ManifoldDatabaseWriter`.
+- **You should only need to use `ManifoldDatabaseReader` as inserting/updating new data is handled for you in the `ManifoldSubscriber` class.**
+
+#### Using the Manifold Database:
+1. Initialization:
+   Create an instance of the `ManifoldDatabase` class.
+   ```python
+   manifold_db = ManifoldDatabase()
+   ```
+2. Create the tables:
+   ```python
+    manifold_db.create_tables()
+   ```
+3. Create an instance of the `ManifoldDatabaseReader` and `ManifoldDatabaseWriter` classes:
+    ```python
+    manifold_db_reader = ManifoldDatabaseReader(manifold_db)
+    manifold_db_writer = ManifoldDatabaseWriter(manifold_db)
+    ```
+4. Writing information to the database:
+    ```python
+    users = self.manifold_api.retrieve_all_data(self.manifold_api.get_users, max_limit=1000)
+    manifold_db_writer.queue_write_operation(function=self.manifold_db.upsert_users, data=users).result()
+    ```
+5. Reading information from the database
+    ```python
+    # Find top 10 binary choice markets with highest volume 
+    markets = \
+        manifold_db_reader.execute_query(
+            """
+            SELECT 
+                id,
+                volume24Hours,
+                question,
+                url
+            FROM 
+                binary_choice_markets
+            WHERE
+                isResolved = FALSE
+            ORDER BY 
+                volume24Hours DESC
+            LIMIT 10;
+            """)
+    ```
+
+### Manifold Subscriber
 
 # ManifoldBot Database Schema
 
-## Tables
-
-### 1. Users
+## 1. Users
 
 | Column             | Type    | Description                                                    |
 | ------------------ | ------- | -------------------------------------------------------------- |
@@ -56,7 +138,7 @@ You can easily add your own functionality to this bot by creating a new strategy
 | totalPnLCached     | REAL    | Cached Profit/Loss of the user                                 |
 | retrievedTimestamp | INTEGER | Timestamp when data was retrieved                              |
 
-### 2. Binary Choice Markets
+## 2. Binary Choice Markets
 
 | Column             | Type    | Description                                                            |
 | ------------------ | ------- | ---------------------------------------------------------------------- |
@@ -84,7 +166,7 @@ You can easily add your own functionality to this bot by creating a new strategy
 | retrievedTimestamp | INTEGER | Timestamp when data was retrieved                                      |
 | lite               | INTEGER | Whether the market was retrieved as a LiteMarket                       |
 
-### 3. Multiple Choice Markets
+## 3. Multiple Choice Markets
 
 | Column             | Type    | Description                                                            |
 | ------------------ | ------- | ---------------------------------------------------------------------- |
@@ -108,7 +190,7 @@ You can easily add your own functionality to this bot by creating a new strategy
 | retrievedTimestamp | INTEGER | Timestamp when data was retrieved                                      |
 | lite               | INTEGER | Whether the market was retrieved as a LiteMarket flag                  |
 
-#### 4. Multiple Choice Market Answers
+### 4. Multiple Choice Market Answers
 
 | Column         | Type    | Description                                                        |
 | -------------- | ------- | ------------------------------------------------------------------ |
@@ -127,7 +209,7 @@ You can easily add your own functionality to this bot by creating a new strategy
 | pool_YES       | REAL    | Liquidity of the 'YES' pool for this answer                        |
 | FOREIGN KEY    | -       | `contractId` references the `multiple_choice_markets` table's `id` |
 
-### 5. Contract Metrics
+## 5. Contract Metrics
 
 | Column             | Type    | Description                       |
 | ------------------ | ------- | --------------------------------- |
@@ -147,7 +229,7 @@ You can easily add your own functionality to this bot by creating a new strategy
 | lastBetTime        | INTEGER | Last bet timestamp                |
 | retrievedTimestamp | INTEGER | Timestamp when data was retrieved |
 
-#### 6. Contract Metrics From
+### 6. Contract Metrics From
 
 | Column        | Type    | Description                                                                             |
 | ------------- | ------- | --------------------------------------------------------------------------------------- |
@@ -162,7 +244,7 @@ You can easily add your own functionality to this bot by creating a new strategy
 | profitPercent | REAL    | Profit percentage                                                                       |
 | FOREIGN KEY   | -       | `(contractId, userId)` references the `contract_metrics` table's `(contractId, userId)` |
 
-#### 7. Contract Metrics TotalShares
+### 7. Contract Metrics TotalShares
 
 | Column         | Type    | Description                                                                             |
 | -------------- | ------- | --------------------------------------------------------------------------------------- |
@@ -173,7 +255,7 @@ You can easily add your own functionality to this bot by creating a new strategy
 | numberOfShares | REAL    | Number of shares                                                                        |
 | FOREIGN KEY    | -       | `(contractId, userId)` references the `contract_metrics` table's `(contractId, userId)` |
 
-### 8. Bets
+## 8. Bets
 
 | Column             | Type    | Description                       |
 | ------------------ | ------- | --------------------------------- |
@@ -193,7 +275,7 @@ You can easily add your own functionality to this bot by creating a new strategy
 | createdTime        | INTEGER | Bet creation timestamp            |
 | retrievedTimestamp | INTEGER | Timestamp when data was retrieved |
 
-#### 9. Bet Fees
+### 9. Bet Fees
 
 | Column             | Type    | Description                                |
 | ------------------ | ------- | ------------------------------------------ |
@@ -204,7 +286,7 @@ You can easily add your own functionality to this bot by creating a new strategy
 | retrievedTimestamp | INTEGER | Data retrieval timestamp                   |
 | FOREIGN KEY        | -       | `betId` references the `bets` table's `id` |
 
-#### 10. Bet Fills
+### 10. Bet Fills
 
 | Column       | Type    | Description                                |
 | ------------ | ------- | ------------------------------------------ |

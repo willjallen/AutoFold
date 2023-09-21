@@ -3,9 +3,9 @@ from collections import defaultdict
 from typing import List, Callable, Dict, DefaultDict
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
-from manifold_api import ManifoldAPI
-from manifold_database import ManifoldDatabase
-from manifold_database import ManifoldDatabaseWriter
+from manifold.manifold_api import ManifoldAPI
+from manifold.manifold_database import ManifoldDatabase
+from manifold.manifold_database import ManifoldDatabaseWriter
 
 
 class ManifoldSubscriber():

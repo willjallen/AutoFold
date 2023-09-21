@@ -2,9 +2,9 @@ from loguru import logger
 from tinydb import TinyDB, Query, where
 from strategies.strategy import Strategy
 from bot import Bot
-from manifold_api import ManifoldAPI
-from manifold_database import ManifoldDatabaseReader
-from manifold_subscriber import ManifoldSubscriber
+from manifold.manifold_api import ManifoldAPI
+from manifold.manifold_database import ManifoldDatabaseReader
+from manifold.manifold_subscriber import ManifoldSubscriber
 
 class ExampleStrategy(Strategy):
 	def __init__(self, bot: Bot, manifold_api: ManifoldAPI, manifold_db_reader: ManifoldDatabaseReader, manifold_subscriber: ManifoldSubscriber):

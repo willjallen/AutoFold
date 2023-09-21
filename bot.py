@@ -4,9 +4,9 @@ from tinydb import TinyDB, Query
 from concurrent.futures import ThreadPoolExecutor
 
 from strategies.strategy import Strategy
-from manifold_api import ManifoldAPI
-from manifold_database import ManifoldDatabaseReader
-from manifold_subscriber import ManifoldSubscriber
+from manifold.manifold_api import ManifoldAPI
+from manifold.manifold_database import ManifoldDatabaseReader
+from manifold.manifold_subscriber import ManifoldSubscriber
 
 def get_strategy_class_from_file(strategy_filename):
 	module = __import__(f"strategies.{strategy_filename[:-3]}", fromlist=[strategy_filename[:-3]])

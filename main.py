@@ -3,11 +3,11 @@ import signal
 import time
 
 
-from manifold_api import ManifoldAPI
-from manifold_database import ManifoldDatabase
-from manifold_database import ManifoldDatabaseReader
-from manifold_database import ManifoldDatabaseWriter
-from manifold_subscriber import ManifoldSubscriber
+from manifold.manifold_api import ManifoldAPI
+from manifold.manifold_database import ManifoldDatabase
+from manifold.manifold_database import ManifoldDatabaseReader
+from manifold.manifold_database import ManifoldDatabaseWriter
+from manifold.manifold_subscriber import ManifoldSubscriber
 
 from bot import Bot
 

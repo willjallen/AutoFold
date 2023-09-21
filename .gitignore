@@ -17,6 +17,8 @@ strategies/*
 !strategies/strategy.py
 # And the example
 !strategies/example_strategy.py
+# And the template
+!strategies/template_strategy.py
 
 # vscode
 .vscode/

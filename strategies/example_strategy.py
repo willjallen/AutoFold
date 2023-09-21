@@ -36,7 +36,8 @@ class ExampleStrategy(Strategy):
 				- Persistence between strategy executions
 
 			
-			NOTE: This is just to demonstrate how to use this bot system. A real strategy might be much more sophisticated. You will probably lose mana with this strategy.
+			NOTE: This is just an example to demonstrate how to use this system. There are a lot of problems/edge cases with this. 
+   				  A real strategy might be much more sophisticated. You will probably lose mana with this strategy!!!
 		'''
 		init_status = self.db.search(where('init').exists())
 		if not init_status:

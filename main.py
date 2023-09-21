@@ -52,7 +52,7 @@ def main():
     while not SHUTDOWN:
         time.sleep(1)
    
-    print("Shutting down...") 
+    logger.info("Shutting down...") 
     
     # Api must be shut down first
     manifold_api.shutdown()
@@ -63,7 +63,6 @@ def main():
     # Subscriber
     manifold_subscriber.shutdown()
 
-    
     # Database 
     manifold_db_writer.shutdown()
 

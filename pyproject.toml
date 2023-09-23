@@ -3,8 +3,8 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "AutoFold"
-version = "1.0"
+name = "autofold"
+version = "0.2"
 description = "Hassle-free and easy to use bot for [Manifold.markets](https://manifold.markets)"
 readme = "README.md"
 requires-python = ">=3.8"

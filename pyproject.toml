@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "autofold"
-version = "0.2"
+version = "0.2.1"
 description = "Hassle-free and easy to use bot for [Manifold.markets](https://manifold.markets)"
 readme = "README.md"
 requires-python = ">=3.8"

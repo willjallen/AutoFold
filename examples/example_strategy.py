@@ -1,29 +1,17 @@
 from loguru import logger
-from tinydb import TinyDB, Query, where
-from strategies.strategy import Strategy
-from bot import Bot
-from manifold.manifold_api import ManifoldAPI
-from manifold.manifold_database import ManifoldDatabaseReader
-from manifold.manifold_subscriber import ManifoldSubscriber
+from tinydb import where
+from autofold.strategy import Strategy
+from autofold.bot import StrategyBot
+
 
 class ExampleStrategy(Strategy):
-	def __init__(self, bot: Bot, manifold_api: ManifoldAPI, manifold_db_reader: ManifoldDatabaseReader, manifold_subscriber: ManifoldSubscriber):
-		super().__init__(name=__name__)
-		
-		self.running = True
-		
-		self.bot = bot
-		self.manifold_api = manifold_api
-		self.manifold_db_reader = manifold_db_reader
-		self.manifold_subscriber = manifold_subscriber
-
-		# All child classes of Strategy are provided a local tinydb for non-volatile storage if you need it.
-		# Note that tinydb is NOT threadsafe, access should only occur from within a single strategy.
-		# Feel free to use your own storage medium as you see fit.
+	def __init__(self, bot: StrategyBot):
+		super().__init__(__name__, bot)
 		logger.info("ExampleStrategy object initialized successfully.") 
 		
 	
-	def run(self):
+	def start(self):
+		self.running = True
 		logger.info("Running the strategy")
 		'''
 			In this example:
@@ -58,7 +46,7 @@ class ExampleStrategy(Strategy):
 															   polling_time=60,
 															   callback=self.track_position) 
 	
-	def shutdown(self):
+	def stop(self):
 		self.running = False
 		logger.info("Shutdown method called. Strategy has been halted.") 
 		
@@ -278,3 +266,27 @@ class ExampleStrategy(Strategy):
 					logger.info(f"Sold {-difference} shares of {outcome}.")
 					# Sell the sold shares
 					# self.manifold_api.sell_shares(marketId=best_position["contractId"], outcome=outcome, shares=-difference)
+
+def main():
+
+	# Set up logging
+	log_format = "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+
+	# Configure the logger
+	logger.add("logs/{time:YYYY-MM-DD}.log", rotation="1 day", format=log_format, level="TRACE", enqueue=True) 
+	logger.info("Logging has been set up!") 
+
+	# Init bot
+	strategy_bot = StrategyBot()
+
+	# Init strategy
+	example_strategy = ExampleStrategy(strategy_bot)
+	
+	# Register it
+	strategy_bot.register_strategy(example_strategy)
+
+	# Run the bot
+	strategy_bot.start()
+
+main() 
+  

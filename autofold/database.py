@@ -6,7 +6,7 @@ import sqlite3
 import threading
 import time
 
-from utils.str_utils import collapse_list_of_strings_to_string
+from autofold.utils.str_utils import collapse_list_of_strings_to_string
 import concurrent.futures
 
 # Helper function for multiple upserts

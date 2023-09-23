@@ -3,10 +3,27 @@ from collections import defaultdict
 from typing import List, Callable, Dict, DefaultDict
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
-from manifold.manifold_api import ManifoldAPI
-from manifold.manifold_database import ManifoldDatabase
-from manifold.manifold_database import ManifoldDatabaseWriter
+from autofold.api import ManifoldAPI
+from autofold.database import ManifoldDatabase
+from autofold.database import ManifoldDatabaseWriter
 
+
+
+'''
+TODO:
+
+This whole thing has a litany of edge cases and problems when there are multiple strategies involved.
+As it stands now it *works*, just not as robust as I would like.
+
+Thoughts:
+All callbacks associated with job should be fired. 
+Right now it's possible for a subscriber to miss a callback if
+
+Replace APScheduler with custom scheduler
+- Job objects should be stored with function signature for proper sharing
+- Job run interval should be min(polling_times) (coalesce jobs)
+- Polling times per subscriber should be respected
+'''
 
 class ManifoldSubscriber():
 	def __init__(self, manifold_api: ManifoldAPI, manifold_db: ManifoldDatabase, manifold_db_writer: ManifoldDatabaseWriter):
@@ -21,30 +38,48 @@ class ManifoldSubscriber():
 			},
 			'apscheduler.job_defaults.coalesce': 'true',
 			'apscheduler.job_defaults.max_instances': '1',
-			'apscheduler.timezone': 'UTC',
 		})
   
 		# Dictionary to store job callbacks, defaulting to an empty list for each job ID
 		self.callbacks: DefaultDict[str, List[Callable]] = defaultdict(list)
 		
 		# Add listener to the scheduler
-		self.scheduler.add_listener(self.job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
+		self.scheduler.add_listener(self._job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
   
 		self.scheduler.start()
   
 	def shutdown(self):
 		logger.debug("Shutting down manifold subscriber")
-		self.scheduler.remove_listener(self.job_listener)
+		self.scheduler.remove_listener(self._job_listener)
 		self.scheduler.shutdown(wait=True)
 		logger.debug("Manifold subscriber shut down")
 
-	def job_listener(self, event):
+	def _job_listener(self, event):
 		'''
 		Listens to job events to trigger registered callbacks
 		'''
 		job_id = event.job_id
 		for callback in self.callbacks[job_id]:
 			callback()
+
+	def _get_job_key(self, func, args, polling_time):
+		"""
+		Generate a unique key for a job based on function, arguments, and polling time.
+		"""
+		return f"{func.__name__}_{str(args)}_{polling_time}"
+
+	def _add_or_update_job(self, func, args, polling_time, callback):
+		"""
+		Check if a job with the given parameters already exists. If so, register the new callback.
+		If not, create a new job.
+		"""
+		job_key = self._get_job_key(func, args, polling_time)
+		if job_key in self.callbacks:
+			self.register_callback(job_key, callback)
+		else:
+			job = self.scheduler.add_job(func=func, args=args, trigger='interval', seconds=polling_time)
+			self.callbacks[job_key] = []
+			self.register_callback(job_key, callback)
 
 	def register_callback(self, job_id, callback):
 		'''
@@ -94,12 +129,12 @@ class ManifoldSubscriber():
 	def subscribe_to_bets(self, userId=None, username=None, contractId=None, contractSlug=None, polling_time=60, callback=None):
 		'''Continuously retrieves the bets via a single value or combination of:
 
-    	- userId
-    	- username
-     	- contractId
-     	- contractSlug 
-      
-        and updates the manifold database with it.
+		- userId
+		- username
+	 	- contractId
+	 	- contractSlug 
+	  
+		and updates the manifold database with it.
 
 		:param userId: The Id of the user.
 		:param username: The username of the user.

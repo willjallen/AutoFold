@@ -120,6 +120,25 @@ The `ManifoldAPI` class provides a seamless interface to interact with the Manif
     ```
 
 ### Manifold Subscriber
+- Provides an easy way to schedule fetching specific data from the Manifold API
+- Allows registering callbacks for each fetch operation
+
+#### Using the Manifold Subscriber:
+1. Initialization:
+   Create an instance of the `ManifoldSubscriber` class.
+   ```python
+   manifold_subscriber = ManifoldSubscriber(manifold_api, manifold_db, manifold_db_writer)
+   ```
+2. Subscribe to an endpoint:
+   ```python
+    manifold_subscriber.subscribe_to_bets(username='Joe', polling_time=60, callback=foo)
+   ```
+3. Do something upon update
+    ```python
+        def foo():
+            ...
+    ```
+
 
 # ManifoldBot Database Schema
 

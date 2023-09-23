@@ -1,20 +1,23 @@
-.. ManifoldBot documentation master file, created by
-   sphinx-quickstart on Fri Sep 22 14:10:26 2023.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+.. include:: ../README.rst
+   :end-before: end-of-readme-intro
 
-Welcome to ManifoldBot's documentation!
-=======================================
+Table of contents
+=================
+
+.. _getting_started:
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 1
+   :caption: Getting Started
 
+   overview.rst
 
+.. _code_overview:
 
-Indices and tables
-==================
+.. toctree::
+   :maxdepth: 1
+   :caption: Manifold Interfaces
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   manifold/api.rst
+   manifold/database.rst
+   manifold/subscriber.rst

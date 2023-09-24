@@ -24,54 +24,31 @@ Features:
       information with granularity
    -  Allows registering callbacks to updates
 
-Setup
------
+-  **StrategyBot**
 
-1. Clone this repository
-2. (Recommended) create a virtual environment, then activate it
-   ::
+   -  Autonomously run multiple custom automations
+ 
+.. end-of-readme-intro
 
-      python -m venv .venv
+.. highlight:: python3
+.. _list of API calls: https://loguru.readthedocs.io/en/stable/api/logger.html#file
 
-3. Install requirements.txt:
-   ::
+Installation
+-------------
 
-      pip install -r requirements.txt
+::
 
-4. Create a .secrets file in the project's root directory and add your
-   API key as a json object:
-   ::
-
-      {
-          "manifold-api-key": "xxx"
-      }
+   pip install autofold
 
 Usage
 -----
 
-Strategies
-~~~~~~~~~~
-
-You can easily add your own functionality to this bot by creating a new
-strategy class in ``strategies/your_strategy.py`` and adding it to the
-``config.toml``. An example is provided for you in
-``strategies/example_strategy.py``.
-
-A skeleton template is available in ``strategies/template_strategy.py``
-
-An instance of ``Bot``, ``ManifoldAPI``, ``ManifoldDatabaseReader`` and
-``ManifoldSubscriber`` is provided to each strategy.
-
-When the ``Bot`` is started, it will call the ``run()`` function for
-each strategy. Likewise, when the program gets a shutdown signal it will
-call the ``shutdown()`` function for each strategy.
 
 Manifold API
 ~~~~~~~~~~~~
 
-The ``ManifoldAPI`` class provides a seamless interface to interact with
-the Manifold.markets API. Below is a quick rundown of its functionality
-and how to utilize it.
+The ``ManifoldAPI`` class provides an interface to interact with
+the Manifold.markets API. 
 
 Key Features:
 ^^^^^^^^^^^^^
@@ -82,70 +59,82 @@ Key Features:
 -  **Asynchronous Execution**: Operations that make API calls are
    executed asynchronously using Python's ``ThreadPoolExecutor``.
 -  **Future-based Interface**: The methods in the class return
-   ``Future`` objects, allowing you to easily handle the results or
-   exceptions once the API call is complete.
+   ``Future`` objects, allowing you flexibility on how to handle the results.
 
-Using the API:
+Initialization
 ^^^^^^^^^^^^^^
 
-1. Initialization: Create an instance of the ``ManifoldAPI`` class.
-   .. code:: python
+Create an instance of the ``ManifoldAPI`` class.
+   ::
 
       api = ManifoldAPI()
 
-2. Making API Calls: Use the provided methods to make API calls. For
-   example, to get a user by their username:
-   .. code:: python
+Making API Calls
+^^^^^^^^^^^^^^^^^
+
+You can find a full `list of API calls`_ in the documentation.
+
+Get a user by their username:
+   ::
 
       future_result = api.get_user_by_username("sampleUsername")
       user_data = future_result.result()
 
-3. Retrieving All Data: If you need to fetch all available data from a
-   paginated API endpoint, use the retrieve_all_data method:
-   .. code:: python
+Sell your shares in a market:
+   ::
+
+      future_result = api.sell_shares("marketId123", "YES", 10)
+      status = future_result.resut()
+
+To fetch all available data from a paginated API endpoint, use the retrieve_all_data method:
+   ::
 
       users = self.manifold_api.retrieve_all_data(self.manifold_api.get_users, max_limit=1000)
 
-   Note that this function returns all of the data instead of a
-   ``Future`` object and is blocking.
+   .. Note:: 
+
+      ``retrieve_all_data`` returns all of the data instead of a ``Future`` object and is blocking.
 
 Manifold Database
 ~~~~~~~~~~~~~~~~~
 
 -  There are two classes you should use directly:
    ``ManifoldDatabaseReader`` and ``ManifoldDatabaseWriter``.
--  **You should only need to use ``ManifoldDatabaseReader`` as
-   inserting/updating new data is handled for you in the
-   ``ManifoldSubscriber`` class.**
 
-Using the Manifold Database:
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. Note:: 
 
-1. Initialization: Create an instance of the ``ManifoldDatabase`` class.
-   .. code:: python
+   You should only need to use ``ManifoldDatabaseReader`` as inserting/updating new data is handled for you when you use the ``ManifoldSubscriber`` class.
+
+Initialization
+^^^^^^^^^^^^^^^
+
+Create an instance of the ``ManifoldDatabase`` class.
+   ::
 
       manifold_db = ManifoldDatabase()
 
-2. Create the tables:
-   .. code:: python
+Create the tables:
+   ::
 
        manifold_db.create_tables()
 
-3. Create an instance of the ``ManifoldDatabaseReader`` and
-   ``ManifoldDatabaseWriter`` classes:
-   .. code:: python
+Using the database
+^^^^^^^^^^^^^^^^^^^
+
+Create an instance of the ``ManifoldDatabaseReader`` and ``ManifoldDatabaseWriter`` classes:
+   ::
 
       manifold_db_reader = ManifoldDatabaseReader(manifold_db)
       manifold_db_writer = ManifoldDatabaseWriter(manifold_db)
 
-4. Writing information to the database:
-   .. code:: python
+Writing information to the database:
+   ::
 
       users = self.manifold_api.retrieve_all_data(self.manifold_api.get_users, max_limit=1000)
       manifold_db_writer.queue_write_operation(function=self.manifold_db.upsert_users, data=users).result()
 
-5. Reading information from the database
-   .. ::
+Reading information from the database
+   ::
 
       # Find top 10 binary choice markets with highest volume 
       markets = manifold_db_reader.execute_query(
@@ -171,24 +160,55 @@ Manifold Subscriber
    Manifold API
 -  Allows registering callbacks for each fetch operation
 
-Using the Manifold Subscriber:
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Initialization
+^^^^^^^^^^^^^^^
 
-1. Initialization: Create an instance of the ``ManifoldSubscriber``
-   class.
-   .. code:: python
+Create an instance of the ``ManifoldSubscriber`` class.
+   ::
 
       manifold_subscriber = ManifoldSubscriber(manifold_api, manifold_db, manifold_db_writer)
 
-2. Subscribe to an endpoint:
-   .. code:: python
+Using the subscriber
+^^^^^^^^^^^^^^^^^^^^^
+
+Subscribe to an endpoint and update the database every 60 seconds:
+   ::
 
        manifold_subscriber.subscribe_to_bets(username='Joe', polling_time=60, callback=foo)
 
-3. Do something upon update
-   .. code:: python
+Do something upon update
+   ::
 
           def foo():
+            pass
+
+
+Bot
+~~~~~~~~~~~~
+
+
+
+Initialization
+^^^^^^^^^^^^^^^
+
+
+Automations
+~~~~~~~~~~~~
+
+You can easily add your own functionality to this bot by creating a new
+strategy class in ``automations/your_strategy.py`` and adding it to the
+``config.toml``. An example is provided for you in
+``automations/example_strategy.py``.
+
+A skeleton template is available in ``automations/template_strategy.py``
+
+An instance of ``Bot``, ``ManifoldAPI``, ``ManifoldDatabaseReader`` and
+``ManifoldSubscriber`` is provided to each strategy.
+
+When the ``Bot`` is started, it will call the ``run()`` function for
+each strategy. Likewise, when the program gets a shutdown signal it will
+call the ``shutdown()`` function for each strategy.
+
 
 ManifoldBot Database Schema
 ===========================

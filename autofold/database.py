@@ -636,6 +636,15 @@ class ManifoldDatabaseWriter:
         self.worker_thread = threading.Thread(target=self._write_thread, name="MF_DB_WRITE")
         self.worker_thread.start()
 
+    def is_alive(self):
+        """
+        Checks if the worker_thread is running.
+
+        :return: True if worker_thread is running, False otherwise.
+        :rtype: bool
+        """
+        return self.worker_thread.is_alive()
+
     def _write_thread(self):
         while not self.shutdown_flag.is_set():
             try:
@@ -684,3 +693,4 @@ class ManifoldDatabaseWriter:
     def _split_list(self, input_list, max_size):
         """Splits the list into sublists of size <= max_size."""
         return [input_list[i:i + max_size] for i in range(0, len(input_list), max_size)]
+    

@@ -47,7 +47,16 @@ class ManifoldSubscriber():
 		self.scheduler.add_listener(self._job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
   
 		self.scheduler.start()
-  
+
+	def is_alive(self):
+		"""
+		Checks if the scheduler is running.
+
+		:return: True if scheduler is running, False otherwise.
+		:rtype: bool
+		"""
+		return self.scheduler.running
+ 
 	def shutdown(self):
 		logger.debug("Shutting down manifold subscriber")
 		self.scheduler.remove_listener(self._job_listener)

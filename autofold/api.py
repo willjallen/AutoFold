@@ -90,6 +90,23 @@ class ManifoldAPI():
 		self._bet_thread = threading.Thread(target=self._process_bet_queue, daemon=True)
 		self._bet_thread.start()
 
+	def is_alive(self):
+		"""
+		Checks if all relevant threads and the executor are running.
+
+		:return: True if all relevant threads and the executor are running, False otherwise.
+		:rtype: bool
+		"""
+		# Check if the ThreadPoolExecutor is running (this is a bit of a workaround)
+		executor_alive = not self._executor._shutdown
+
+		# Check if individual threads are alive
+		read_thread_alive = self._read_thread.is_alive()
+		bet_thread_alive = self._bet_thread.is_alive()
+
+		# Combine these checks to return the overall status
+		return executor_alive and read_thread_alive and bet_thread_alive
+
 	def shutdown(self):
 		'''
         Shutdown the ManifoldAPI.

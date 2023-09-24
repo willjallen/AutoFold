@@ -1,18 +1,19 @@
+import time
 from loguru import logger
 from tinydb import where
-from autofold.strategy import Strategy
-from autofold.bot import StrategyBot
+from autofold.automation import Automation
+from autofold.bot import AutomationBot
 
 
-class ExampleStrategy(Strategy):
-	def __init__(self, bot: StrategyBot):
-		super().__init__(__name__, bot)
-		logger.info("ExampleStrategy object initialized successfully.") 
+class ExampleAutomation(Automation):
+	def __init__(self):
+		super().__init__(__name__)
+		logger.info("ExampleAutomation object initialized.") 
 		
 	
 	def start(self):
 		self.running = True
-		logger.info("Running the strategy")
+		logger.info("Running the automation")
 		'''
 			In this example:
 				- Find the top 10 unresolved binary choice markets with the highest daily volume
@@ -21,18 +22,18 @@ class ExampleStrategy(Strategy):
 				- Make a bet in the direction of their last bet in the market
 				- Subscribe to the user position in the market and do what they do
 				Includes:
-				- Persistence between strategy executions
+				- Persistence between automation executions
 
 			
 			NOTE: This is just an example to demonstrate how to use this system. There are a lot of problems/edge cases with this. 
-   				  A real strategy might be much more sophisticated. You will probably lose mana with this strategy!!!
+   				  A real automation might be much more sophisticated. You will probably lose mana with this automation!!!
 		'''
 		init_status = self.db.search(where('init').exists())
 		if not init_status:
-			logger.info("Strategy is not initialized. Initializing now.") 
-			self.init_strategy()
+			logger.info("Automation is not initialized. Initializing now.") 
+			self.init_automation()
 		else:
-			logger.info("Strategy has already been initialized.") 
+			logger.info("Automation has already been initialized.") 
 		   
 			# Get the ids for our stuff from the db 
 			self.best_position_db_id = self.db.get(where('best_position').exists()).doc_id
@@ -48,10 +49,10 @@ class ExampleStrategy(Strategy):
 	
 	def stop(self):
 		self.running = False
-		logger.info("Shutdown method called. Strategy has been halted.") 
+		logger.info("Shutdown method called. Automation has been halted.") 
 		
-	def init_strategy(self):
-		logger.info("Initializing the strategy.") 
+	def init_automation(self):
+		logger.info("Initializing the automation.") 
 
 		# clear db
 		self.db.truncate() 
@@ -277,16 +278,18 @@ def main():
 	logger.info("Logging has been set up!") 
 
 	# Init bot
-	strategy_bot = StrategyBot()
-
-	# Init strategy
-	example_strategy = ExampleStrategy(strategy_bot)
+	automation_bot = AutomationBot()
+ 
+	# Init automation
+	example_automation = ExampleAutomation()
 	
 	# Register it
-	strategy_bot.register_strategy(example_strategy)
+	automation_bot.register_automation(example_automation)
 
 	# Run the bot
-	strategy_bot.start()
+	automation_bot.start()
+
+	# automation_bot.bad_function()
 
 main() 
   

@@ -1,5 +1,5 @@
 ``ManifoldSubscriber``
-===================
+======================
 
 .. automodule:: autofold.subscriber
    :members:

@@ -15,23 +15,32 @@ from autofold.subscriber import ManifoldSubscriber
 
 class AutomationBot:
 	'''
-	The AutomationBot is responsible for maintaining, adding, removing, starting and stopping automations. 
+	The AutomationBot is responsible for starting, stopping and maintaining threads and connections to the manifold API, manifold database and manifold subscriber.
+ 	Additionally, AutomationBot is reponsible for maintaining, adding, removing, starting and stopping automations. 
+
+	:param bool dev_api_endpoint: Optional. 
+ 		Whether to use the dev.manifold.markets endpoint. Useful for testing. Requires an API key for dev.manifold.markets. Default is False.
  
 	Attributes:
 	-----------
+	- ``dev_api_endpoint``: Whether to use the dev.manifold.markets endpoint
 	- ``manifold_api``: The ManifoldAPI instance
 	- ``manifold_db``: The ManifoldDatabase instance
 	- ``manifold_db_reader``: The ManifoldDatabaseReader instance
 	- ``manifold_db_writer``: The ManifoldDatabaseWriter instance
 	- ``manifold_subscriber``: The ManifoldSubscriber instance
 	''' 
-	def __init__(self):
-	 
+	def __init__(self, dev_api_endpoint=False):
+	
+		self.dev_api_endpoint = dev_api_endpoint
+  
 		# Bind Ctrl+C to the stop function
-		signal.signal(signal.SIGINT, self.stop) 
+		# signal.signal(signal.SIGINT, self.stop) 
   
 		# Dynamically set the excepthook
-		sys.excepthook = self.automation_bot_excepthook
+		# sys.excepthook = self.automation_bot_excepthook
+
+		self._started = False
   
 		self._automations = []
 		self._automation_futures = []
@@ -43,18 +52,26 @@ class AutomationBot:
 		self.manifold_db_reader = None
 		self.manifold_db_writer = None
 		self.manifold_subscriber = None
-  
+
+	def __enter__(self):
+		return self
+
+	def __exit__(self, exc_type, exc_value, traceback):
+		self.stop() 
+
 	def automation_bot_excepthook(self, exc_type, exc_value, exc_traceback):
 		self.stop()
 		
 		# Call the original excepthook
 		sys.__excepthook__(exc_type, exc_value, exc_traceback) 
 
-	def register_automation(self, automation):
+	def register_automation(self, automation_obj, automation_name, run_on_bot_start=True):
 		'''
 		Registers an automation with the bot.
 
-		:param type automation: Required. The automation class to register. Must be a subclass of the `Automation` class.
+		:param Strategy automation_obj: Required. The automation class to register. Must be a subclass of the `Automation` class.
+		:param str automation_name: Required. The name of the automation.
+		:param bool run_on_bot_start: Optional. Whether the automation should be automatically run when the bot first starts. Default True.
 		:raises TypeError: if the automation is not a class type.
 		:raises ValueError: if the automation is not a subclass of `Automation`.
 
@@ -65,15 +82,24 @@ class AutomationBot:
 			bot = ManifoldBot()
 			bot.register_automation(MyCustomAutomation)
 		''' 
-		if not isinstance(automation, Automation):
-			logger.error(f"{automation} must be of a subclass of type Automation")
+		if not isinstance(automation_obj, Automation):
+			logger.error(f"{automation_obj} must be of a subclass of type Automation")
 			return
 
-		self._automations.append(automation)
+		self._automations.append({'object': automation_obj, 
+								  'name': automation_name,
+								  'registered': False,
+								  'shouldRun': run_on_bot_start,
+							   	  'running': False,
+             					  'finished': False})
 
   
  	
 	def start(self):
+		self.thread = threading.Thread(target=self._start, daemon=True)
+		self.thread.start()
+  
+	def _start(self):
 		'''
 		Starts the bot's operation.
 
@@ -82,63 +108,73 @@ class AutomationBot:
 		:raises RuntimeError: if no automations have been registered.
 		''' 
 
-		# if len(self._automations) == 0:
-		# 	logger.error("No automations have been registered for the bot. Exiting.")
-		# 	self.stop()
+		try:
+			self.manifold_api = ManifoldAPI(dev_mode=self.dev_api_endpoint)
 
-		self.manifold_api = ManifoldAPI()
-
-		self.manifold_db = ManifoldDatabase()
-		self.manifold_db_reader = ManifoldDatabaseReader(self.manifold_db)
-		self.manifold_db_writer = ManifoldDatabaseWriter(self.manifold_db)
-		self.manifold_db.create_tables()
-  
-		self.manifold_subscriber = ManifoldSubscriber(self.manifold_api, self.manifold_db, self.manifold_db_writer)
-  
-		self._executor = ThreadPoolExecutor(thread_name_prefix="BOT", max_workers=20) 
+			self.manifold_db = ManifoldDatabase()
+			self.manifold_db_reader = ManifoldDatabaseReader(self.manifold_db)
+			self.manifold_db_writer = ManifoldDatabaseWriter(self.manifold_db)
+			self.manifold_db.create_tables()
 	
-		# # Wait for all threads to come alive
-		# threads = {
-		# 	'manifold_api': self.manifold_api,
-		# 	'manifold_db_writer': self.manifold_db_writer,
-		# 	'manifold_subscriber': self.manifold_subscriber
-		# }
+			self.manifold_subscriber = ManifoldSubscriber(self.manifold_api, self.manifold_db, self.manifold_db_writer)
+	
+			self._executor = ThreadPoolExecutor(thread_name_prefix="BOT_AUTOMATION_POOL", max_workers=20) 
 
-		# timeout_counter = 0
-		# while True:
-		# 	# Using list comprehension to find components that are not alive
-		# 	failed_threads = [name for name, thread in threads.items() if not thread.is_alive()]
-			
-		# 	if not failed_threads:
-		# 		break
-			
-		# 	if timeout_counter >= 5:
-		# 		self.stop()
-		# 		raise RuntimeError(f"Failed to start {failed_threads}.")
-				
-		# 	time.sleep(1)
-		# 	timeout_counter += 1
+			self.started = True
+		
+			# Loop to check for the stop condition
+			while not self._shutdown_event.is_set():
+				# Check for unregistered automations and/or automations that should be executed
+				for automation in self._automations:
+					if not automation['registered']:
+						logger.debug("Registering automation {automation}")
+						automation['object']._register(self)
+						automation['registered'] = True
+					if not automation['running'] and automation['shouldRun']:
+						automation['running'] = True
+						automation['shouldRun'] = False
+						self._automation_futures.append(self._executor.submit(self._run_automation, automation))
+		
+				time.sleep(1)  # Sleep for 1 second
+	
+			self.stop()
+		finally:
+			self.stop()
+
+	'''
+		Runs an automation.
+
+		:param str automation_name: Required. The name of the automation.
+		:raises RuntimeError: if the automation has not been registered with the bot.
+		:raises RuntimeError: if the automation is not found.
   
-		# Schedule automations to run in the thread pool
-
+ 	'''
+	def run_automation(self, automation_name):
 		for automation in self._automations:
-			logger.debug("Registering automation {automation}")
-			automation._register(self)
-			self._automation_futures.append(self._executor.submit(self._run_automation, automation))
- 	
-  
-		# Loop to check for the stop condition
-		while not self._shutdown_event.is_set():
-			time.sleep(1)  # Sleep for 1 second
+			if automation['name'] == automation_name:
+				if automation['registered'] != True:
+					raise RuntimeError(f"Automation {automation_name} has not been registered.")
+				if automation['running']:
+					logger.error(f"Automation {automation_name} is already running.")
+					return
+				self._automation_futures.append(self._executor.submit(self._run_automation, automation))
+				return
+
+		raise RuntimeError(f"Automation {automation_name} not found.")
 
 	def _run_automation(self, automation):
-		logger.debug("Running automation {automation}")
-     
+		logger.debug(f"Running automation {automation['name']}")
+	 
 		try:
-			automation.start()
+			automation['object'].start()
 		except Exception as e:
-			logger.exception("An error occurred in automation: ", e)
+			logger.error(f"Caught exception in automation: {automation['name']}", e)
 			self.stop()
+		
+		# When the automation finishes
+		automation['running'] = False
+		automation['finished'] = True
+
 
 	def stop(self, *args):
 		'''
@@ -151,7 +187,7 @@ class AutomationBot:
 			self.manifold_api.shutdown()
 
 		for automation in self._automations:
-			automation.stop()
+			automation['object'].stop()
   
 		if self._executor:
 			self._executor.shutdown(wait=False)
@@ -165,6 +201,9 @@ class AutomationBot:
 			self.manifold_db_writer.shutdown()  
   
 		self._shutdown_event.set() 
+  
+		self.thread.join()
+  
 
 
 	def get_id(self):

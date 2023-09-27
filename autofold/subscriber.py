@@ -69,7 +69,10 @@ class ManifoldSubscriber():
 		'''
 		job_id = event.job_id
 		for callback in self.callbacks[job_id]:
-			callback()
+			try:
+				callback()
+			except Exception as e:
+				logger.error(f"Caught exception in callback {callback} for job id {job_id}", e)
 
 	def _get_job_key(self, func, args, polling_time):
 		"""

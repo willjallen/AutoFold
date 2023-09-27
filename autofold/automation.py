@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
 from tinydb import TinyDB
-
+import threading
 
 class Automation(ABC):
 
-	def __init__(self, db_name: str):
+	def __init__(self, db_name: str=""):
 		'''
 		Initializer for the automation class.
 
@@ -12,12 +12,12 @@ class Automation(ABC):
 
 		.. warning::
 
-			Automation MUST be registered with the bot for the object attributes to be set.
+			Automation MUST be registered with the bot for the object attributes to be set AND the bot must be started before registering the automation.
 
 		.. note::
 
 			All child classes of automation are provided a local tinydb for non-volatile storage if needed.
-			Note that tinydb is NOT threadsafe; access to a db should only occur from within the automation that created it.
+			Note that tinydb is NOT threadsafe; proper access safety should be used when accessing data between automations.
 			Feel free to use your own storage medium as you see fit.
 
 		Attributes:
@@ -28,7 +28,6 @@ class Automation(ABC):
 		- ``manifold_subscriber``: The ManifoldSubscriber instance extracted from automation_bot.
 		- ``db``: The TinyDB instance for this automation.
 		''' 
-
 		self.db_name = db_name
 
 	def _register(self, automation_bot):
@@ -36,7 +35,8 @@ class Automation(ABC):
 		self.manifold_api = automation_bot.manifold_api
 		self.manifold_db_reader = automation_bot.manifold_db_reader
 		self.manifold_subscriber = automation_bot.manifold_subscriber
-		self.db = TinyDB('dbs/'+self.db_name+'.json')
+		if self.db_name:
+			self.db = TinyDB('dbs/'+self.db_name+'.json')
 		
 	
 	@abstractmethod

@@ -5,10 +5,9 @@ from autofold.automation import Automation
 from autofold.bot import AutomationBot
 
 
-class ExampleAutomation(Automation):
-	def __init__(self):
-		super().__init__(__name__)
-		logger.info("ExampleAutomation object initialized.") 
+class BetAutomation(Automation):
+	def __init__(self, db_name):
+		super().__init__(db_name)
 		
 	
 	def start(self):
@@ -28,6 +27,8 @@ class ExampleAutomation(Automation):
 			NOTE: This is just an example to demonstrate how to use this system. There are a lot of problems/edge cases with this. 
    				  A real automation might be much more sophisticated. You will probably lose mana with this automation!!!
 		'''
+  
+		# Automation startup
 		init_status = self.db.search(where('init').exists())
 		if not init_status:
 			logger.info("Automation is not initialized. Initializing now.") 
@@ -46,6 +47,11 @@ class ExampleAutomation(Automation):
 															   userId=best_position["userId"],
 															   polling_time=60,
 															   callback=self.track_position) 
+   
+		# You can add extra logic here to repeat the automation every hour or whatever
+		while not self.running:
+			# ... logic
+			time.sleep(60 * 60)
 	
 	def stop(self):
 		self.running = False
@@ -219,7 +225,6 @@ class ExampleAutomation(Automation):
 		# Retrieve the best position and recent bet data from the local db
 		best_position = self.db.get(doc_id=self.best_position_db_id)["best_position"]
 		best_position_shares = self.db.get(doc_id=self.best_position_shares_db_id)["best_position_shares"]
-
 		# Fetch the latest shares (YES and NO) from the nested contract_metrics_totalShares
 		latest_shares = \
 			self.manifold_db_reader.execute_query(
@@ -277,19 +282,23 @@ def main():
 	logger.add("logs/{time:YYYY-MM-DD}.log", rotation="1 day", format=log_format, level="TRACE", enqueue=True) 
 	logger.info("Logging has been set up!") 
 
+	# Init automation
+	example_automation = BetAutomation(db_name='example_automation')
+
 	# Init bot
 	automation_bot = AutomationBot()
- 
-	# Init automation
-	example_automation = ExampleAutomation()
-	
+
 	# Register it
-	automation_bot.register_automation(example_automation)
+	automation_bot.register_automation(example_automation, "example_automation")
 
 	# Run the bot
 	automation_bot.start()
 
-	# automation_bot.bad_function()
+	# time.sleep(2)
+	input("Press any key to exit")
+ 
+	automation_bot.stop()
+
 
 main() 
   

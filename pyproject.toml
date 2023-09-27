@@ -4,18 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "autofold"
-version = "0.2.1"
-description = "Hassle-free and easy to use bot for [Manifold.markets](https://manifold.markets)"
+version = "0.2.2"
+description = "All-in-one API, local database, data subscriber and bot interface for Manifold.markets"
 readme = "README.rst"
 requires-python = ">=3.8"
 license = {file = "LICENSE.txt"}
-# keywords = ["egg", "bacon", "sausage", "tomatoes", "Lobster Thermidor"]
-# authors = [
-#   {name = "Pradyun Gedam", email = "pradyun@example.com"},
-#   {name = "Tzu-Ping Chung", email = "tzu-ping@example.com"},
-#   {name = "Another person"},
-#   {email = "different.person@example.com"},
-# ]
+keywords = ["manifold", "markets", "manifold.markets", "api", "bot", "trading bot", "utility"]
+authors = [
+  {name = "William Allen"},
+]
 # maintainers = [
 #   {name = "Brett Cannon", email = "brett@python.org"}
 # ]
@@ -41,10 +38,10 @@ dependencies = [
 #   "click",
 # ]
 
-# [project.urls]
+[project.urls]
+Documentation = "https://manifoldbot.readthedocs.io/en/release/"
+Repository = "https://github.com/willjallen/AutoFold"
 # Homepage = "https://example.com"
-# Documentation = "https://readthedocs.org"
-# Repository = "https://github.com/me/spam.git"
 # Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
 
 # [project.scripts]

@@ -1,8 +1,16 @@
 autofold
 ===========
 
+.. image:: https://readthedocs.org/projects/manifoldbot/badge/?version=latest
+    :target: https://manifoldbot.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
+
+
 All-in-one API, local database, data subscriber and bot interface for
 `Manifold.markets <https://manifold.markets>`__
+
+`Full documentation here <https://manifoldbot.readthedocs.io/en/latest/>`__
 
 Features:
 ---------
@@ -29,7 +37,7 @@ Features:
    -  Autonomously run multiple custom automations
  
 
-.. highlight:: python3
+
 .. _list of API calls: https://loguru.readthedocs.io/en/stable/api/logger.html#file
 
 Installation
@@ -83,31 +91,31 @@ Initialization
 ^^^^^^^^^^^^^^^
 Create an instance of the ``AutomationBot`` class.
 
-::
+.. code-block:: python3
 
    automation_bot = AutomationBot()
 
 Instantiate your automation. (Details on automations in the next section)
 
-::
+.. code-block:: python3
 
    my_automation = MyStrategy()
 
 Register your automation with the bot
 
-::
+.. code-block:: python3
 
    automation_bot.register_automation(my_automation, "my_strategy")
 
 Start the bot
 
-::
+.. code-block:: python3
 
    automation_bot.start()
 
 Optionally add something blocking to prevent the main thread from exiting and put a ``stop()`` call after.
 
-::
+.. code-block:: python3
 
    input('Press any key to stop')
    automation_bot.stop()
@@ -117,7 +125,7 @@ Automations
 
 You can easily add your own automations by implementing a subclass of ``Automation``:
 
-::
+.. code-block:: python3
 
    class Automation(ABC):
 
@@ -207,7 +215,7 @@ Initialization
 
 Create an instance of the ``ManifoldAPI`` class.
 
-::
+.. code-block:: python3
 
    api = ManifoldAPI()
 
@@ -218,21 +226,21 @@ You can find a full `list of API calls`_ in the documentation.
 
 Get a user by their username:
 
-::
+.. code-block:: python3
 
    future_result = api.get_user_by_username("sampleUsername")
    user_data = future_result.result()
 
 Sell your shares in a market:
 
-::
+.. code-block:: python3
 
    future_result = api.sell_shares("marketId123", "YES", 10)
    status = future_result.resut()
 
 To fetch all available data from a paginated API endpoint, use the retrieve_all_data method:
 
-::
+.. code-block:: python3
 
    users = self.manifold_api.retrieve_all_data(self.manifold_api.get_users, max_limit=1000)
 
@@ -255,13 +263,13 @@ Initialization
 
 Create an instance of the ``ManifoldDatabase`` class.
 
-::
+.. code-block:: python3
 
    manifold_db = ManifoldDatabase()
 
 Create the tables:
 
-::
+.. code-block:: python3
 
       manifold_db.create_tables()
 
@@ -270,21 +278,21 @@ Using the database
 
 Create an instance of the ``ManifoldDatabaseReader`` and ``ManifoldDatabaseWriter`` classes:
 
-::
+.. code-block:: python3
 
    manifold_db_reader = ManifoldDatabaseReader(manifold_db)
    manifold_db_writer = ManifoldDatabaseWriter(manifold_db)
 
 Writing information to the database:
 
-::
+.. code-block:: python3
 
    users = self.manifold_api.retrieve_all_data(self.manifold_api.get_users, max_limit=1000)
    manifold_db_writer.queue_write_operation(function=self.manifold_db.upsert_users, data=users).result()
 
 Reading information from the database
 
-::
+.. code-block:: python3
 
    # Find top 10 binary choice markets with highest volume 
    markets = manifold_db_reader.execute_query(
@@ -315,7 +323,7 @@ Initialization
 
 Create an instance of the ``ManifoldSubscriber`` class.
 
-::
+.. code-block:: python3
 
    manifold_subscriber = ManifoldSubscriber(manifold_api, manifold_db, manifold_db_writer)
 
@@ -324,16 +332,16 @@ Using the subscriber
 
 Subscribe to an endpoint and update the database every 60 seconds:
 
-::
+.. code-block:: python3
 
    manifold_subscriber.subscribe_to_bets(username='Joe', polling_time=60, callback=foo)
 
 Do something upon update
 
-::
+.. code-block:: python3
 
    def foo():
-   pass
+      pass
 
 
 

@@ -1,9 +1,3 @@
-# Secrets!!
-.secrets
-
-# Logs
-api_call_logs.json
-
 # Databases
 dbs/*
 

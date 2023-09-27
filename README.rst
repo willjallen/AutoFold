@@ -24,25 +24,166 @@ Features:
       information with granularity
    -  Allows registering callbacks to updates
 
--  **StrategyBot**
+-  **AutomationBot**
 
    -  Autonomously run multiple custom automations
  
-.. end-of-readme-intro
 
 .. highlight:: python3
 .. _list of API calls: https://loguru.readthedocs.io/en/stable/api/logger.html#file
 
 Installation
--------------
+------------
+
+To get started with the package, you can install it using pip.
 
 ::
 
    pip install autofold
 
-Usage
------
+Setting Up the API Key
+----------------------
 
+After installing the package, you'll need to set up your API key. You should set this key as an environment variable, named ``MANIFOLD_API_KEY``.
+
+Unix/Linux/macOS
+~~~~~~~~~~~~~~~~
+
+If you're using a Unix-like operating system, you can set the environment variable in your shell session using the ``export`` command:
+
+::
+
+   export MANIFOLD_API_KEY="your_api_key_here"
+
+You may also want to add this command to your ``.bashrc`` or ``.zshrc`` file to ensure the variable is set whenever you open a new terminal window.
+
+Windows
+~~~~~~~~
+
+On Windows, you can set an environment variable using the ``setx`` command:
+
+::
+
+   setx MANIFOLD_API_KEY "your_api_key_here"
+
+Note that this will set the environment variable permanently but it won't affect currently open command prompts. You'll need to restart any open command prompts or open a new one to see the change.
+
+
+Quick Start
+-------------
+
+
+AutomationBot
+~~~~~~~~~~~~~~
+The AutomationBot is responsible for starting, stopping and maintaining threads and connections to the manifold API, manifold database and manifold subscriber.
+Additionally, AutomationBot is reponsible for maintaining, adding, removing, starting and stopping automations. 
+This class provides everything you need to start writing automations.
+
+Initialization
+^^^^^^^^^^^^^^^
+Create an instance of the ``AutomationBot`` class.
+
+::
+
+   automation_bot = AutomationBot()
+
+Instantiate your automation. (Details on automations in the next section)
+
+::
+
+   my_automation = MyStrategy()
+
+Register your automation with the bot
+
+::
+
+   automation_bot.register_automation(my_automation, "my_strategy")
+
+Start the bot
+
+::
+
+   automation_bot.start()
+
+Optionally add something blocking to prevent the main thread from exiting and put a ``stop()`` call after.
+
+::
+
+   input('Press any key to stop')
+   automation_bot.stop()
+
+Automations
+~~~~~~~~~~~~
+
+You can easily add your own automations by implementing a subclass of ``Automation``:
+
+::
+
+   class Automation(ABC):
+
+      def __init__(self, db_name: str=""):
+         '''
+         Initializer for the automation class.
+
+         :param str db_name: Required. The name of the database file to use, without the extension.
+
+
+         Attributes:
+         -----------
+         - ``automation_bot``: The ManifoldBot instance.
+         - ``manifold_api``: The ManifoldAPI instance extracted from automation_bot.
+         - ``manifold_db_reader``: The ManifoldDatabaseReader instance extracted from automation_bot.
+         - ``manifold_subscriber``: The ManifoldSubscriber instance extracted from automation_bot.
+         - ``db``: The TinyDB instance for this automation.
+         ''' 
+         self.db_name = db_name
+
+      @abstractmethod
+      def start(self, *args, **kwargs):
+         '''
+         Abstract method to start the automation.
+
+         .. note::
+            This method must be implemented in subclasses.
+
+         :param args: Additional positional arguments.
+         :param kwargs: Additional keyword arguments.
+         '''
+         pass
+      
+      @abstractmethod
+      def stop(self, *args, **kwargs):
+         '''
+         Abstract method to stop the automation.
+
+         .. note::
+            This method must be implemented in subclasses.
+
+         :param args: Additional positional arguments.
+         :param kwargs: Additional keyword arguments.
+         '''
+         pass
+
+.. warning::
+
+   Automations MUST be registered with the bot for the object attributes to be set. This must be done before you run the automation.
+
+.. note::
+
+   All child classes of automation are provided a local tinydb for non-volatile storage if needed.
+   Note that tinydb is NOT threadsafe; proper access safety should be used when accessing data between automations.
+   Feel free to use your own storage medium as you see fit.
+
+An instance of ``AutomationBot``, ``ManifoldAPI``, ``ManifoldDatabaseReader`` and
+``ManifoldSubscriber`` is provided to each automation.
+
+When the ``AutomationBot`` is started, by default it will call the ``run()`` function for
+each automation. Likewise, when the program gets a shutdown signal it will
+call the ``stop()`` function for each automation.
+
+An example automation is available in ``automations/bet_automation.py``
+
+.. end-of-readme-intro
 
 Manifold API
 ~~~~~~~~~~~~
@@ -65,9 +206,10 @@ Initialization
 ^^^^^^^^^^^^^^
 
 Create an instance of the ``ManifoldAPI`` class.
-   ::
 
-      api = ManifoldAPI()
+::
+
+   api = ManifoldAPI()
 
 Making API Calls
 ^^^^^^^^^^^^^^^^^
@@ -75,25 +217,28 @@ Making API Calls
 You can find a full `list of API calls`_ in the documentation.
 
 Get a user by their username:
-   ::
 
-      future_result = api.get_user_by_username("sampleUsername")
-      user_data = future_result.result()
+::
+
+   future_result = api.get_user_by_username("sampleUsername")
+   user_data = future_result.result()
 
 Sell your shares in a market:
-   ::
 
-      future_result = api.sell_shares("marketId123", "YES", 10)
-      status = future_result.resut()
+::
+
+   future_result = api.sell_shares("marketId123", "YES", 10)
+   status = future_result.resut()
 
 To fetch all available data from a paginated API endpoint, use the retrieve_all_data method:
-   ::
 
-      users = self.manifold_api.retrieve_all_data(self.manifold_api.get_users, max_limit=1000)
+::
 
-   .. Note:: 
+   users = self.manifold_api.retrieve_all_data(self.manifold_api.get_users, max_limit=1000)
 
-      ``retrieve_all_data`` returns all of the data instead of a ``Future`` object and is blocking.
+.. Note:: 
+
+   ``retrieve_all_data`` returns all of the data instead of a ``Future`` object and is blocking.
 
 Manifold Database
 ~~~~~~~~~~~~~~~~~
@@ -109,49 +254,54 @@ Initialization
 ^^^^^^^^^^^^^^^
 
 Create an instance of the ``ManifoldDatabase`` class.
-   ::
 
-      manifold_db = ManifoldDatabase()
+::
+
+   manifold_db = ManifoldDatabase()
 
 Create the tables:
-   ::
 
-       manifold_db.create_tables()
+::
+
+      manifold_db.create_tables()
 
 Using the database
 ^^^^^^^^^^^^^^^^^^^
 
 Create an instance of the ``ManifoldDatabaseReader`` and ``ManifoldDatabaseWriter`` classes:
-   ::
 
-      manifold_db_reader = ManifoldDatabaseReader(manifold_db)
-      manifold_db_writer = ManifoldDatabaseWriter(manifold_db)
+::
+
+   manifold_db_reader = ManifoldDatabaseReader(manifold_db)
+   manifold_db_writer = ManifoldDatabaseWriter(manifold_db)
 
 Writing information to the database:
-   ::
 
-      users = self.manifold_api.retrieve_all_data(self.manifold_api.get_users, max_limit=1000)
-      manifold_db_writer.queue_write_operation(function=self.manifold_db.upsert_users, data=users).result()
+::
+
+   users = self.manifold_api.retrieve_all_data(self.manifold_api.get_users, max_limit=1000)
+   manifold_db_writer.queue_write_operation(function=self.manifold_db.upsert_users, data=users).result()
 
 Reading information from the database
-   ::
 
-      # Find top 10 binary choice markets with highest volume 
-      markets = manifold_db_reader.execute_query(
-      """
-      SELECT 
-         id,
-         volume24Hours,
-         question,
-         url
-      FROM 
-         binary_choice_markets
-      WHERE
-         isResolved = FALSE
-      ORDER BY 
-         volume24Hours DESC
-      LIMIT 10;
-      """)
+::
+
+   # Find top 10 binary choice markets with highest volume 
+   markets = manifold_db_reader.execute_query(
+   """
+   SELECT 
+      id,
+      volume24Hours,
+      question,
+      url
+   FROM 
+      binary_choice_markets
+   WHERE
+      isResolved = FALSE
+   ORDER BY 
+      volume24Hours DESC
+   LIMIT 10;
+   """)
 
 Manifold Subscriber
 ~~~~~~~~~~~~~~~~~~~
@@ -164,394 +314,29 @@ Initialization
 ^^^^^^^^^^^^^^^
 
 Create an instance of the ``ManifoldSubscriber`` class.
-   ::
 
-      manifold_subscriber = ManifoldSubscriber(manifold_api, manifold_db, manifold_db_writer)
+::
+
+   manifold_subscriber = ManifoldSubscriber(manifold_api, manifold_db, manifold_db_writer)
 
 Using the subscriber
 ^^^^^^^^^^^^^^^^^^^^^
 
 Subscribe to an endpoint and update the database every 60 seconds:
-   ::
 
-       manifold_subscriber.subscribe_to_bets(username='Joe', polling_time=60, callback=foo)
+::
+
+   manifold_subscriber.subscribe_to_bets(username='Joe', polling_time=60, callback=foo)
 
 Do something upon update
-   ::
 
-          def foo():
-            pass
+::
 
-
-Bot
-~~~~~~~~~~~~
+   def foo():
+   pass
 
 
 
-Initialization
-^^^^^^^^^^^^^^^
 
 
-Automations
-~~~~~~~~~~~~
 
-You can easily add your own functionality to this bot by creating a new
-strategy class in ``automations/your_strategy.py`` and adding it to the
-``config.toml``. An example is provided for you in
-``automations/example_strategy.py``.
-
-A skeleton template is available in ``automations/template_strategy.py``
-
-An instance of ``Bot``, ``ManifoldAPI``, ``ManifoldDatabaseReader`` and
-``ManifoldSubscriber`` is provided to each strategy.
-
-When the ``Bot`` is started, it will call the ``run()`` function for
-each strategy. Likewise, when the program gets a shutdown signal it will
-call the ``shutdown()`` function for each strategy.
-
-
-ManifoldBot Database Schema
-===========================
-
-.. _1-users:
-
-1. Users
---------
-
-+--------------------+---------+-------------------------------------+
-| Column             | Type    | Description                         |
-+====================+=========+=====================================+
-| id                 | TEXT    | User's unique id                    |
-+--------------------+---------+-------------------------------------+
-| createdTime        | INTEGER | Timestamp when the user was created |
-|                    |         | (milliseconds since epoch)          |
-+--------------------+---------+-------------------------------------+
-| name               | TEXT    | Display name, may contain spaces    |
-+--------------------+---------+-------------------------------------+
-| username           | TEXT    | Username, used in URLs              |
-+--------------------+---------+-------------------------------------+
-| url                | TEXT    | Link to the user's profile          |
-+--------------------+---------+-------------------------------------+
-| bio                | TEXT    | Optional user's biography           |
-+--------------------+---------+-------------------------------------+
-| balance            | REAL    | User's balance                      |
-+--------------------+---------+-------------------------------------+
-| totalDeposits      | REAL    | Total deposits made by the user     |
-+--------------------+---------+-------------------------------------+
-| totalPnLCached     | REAL    | Cached Profit/Loss of the user      |
-+--------------------+---------+-------------------------------------+
-| retrievedTimestamp | INTEGER | Timestamp when data was retrieved   |
-+--------------------+---------+-------------------------------------+
-
-.. _2-binary-choice-markets:
-
-2. Binary Choice Markets
-------------------------
-
-+--------------------+---------+-------------------------------------+
-| Column             | Type    | Description                         |
-+====================+=========+=====================================+
-| id                 | TEXT    | Unique identifier for this market   |
-+--------------------+---------+-------------------------------------+
-| closeTime          | INTEGER | Min of creator's chosen date, and   |
-|                    |         | resolutionTime                      |
-+--------------------+---------+-------------------------------------+
-| createdTime        | INTEGER | Timestamp when the market was       |
-|                    |         | created (milliseconds since epoch)  |
-+--------------------+---------+-------------------------------------+
-| creatorId          | TEXT    | Identifier for the market creator   |
-+--------------------+---------+-------------------------------------+
-| creatorName        | TEXT    | Name of the market creator          |
-+--------------------+---------+-------------------------------------+
-| creatorUsername    | TEXT    | Username of the market creator      |
-+--------------------+---------+-------------------------------------+
-| isResolved         | BOOLEAN | Whether the market is resolved or   |
-|                    |         | not                                 |
-+--------------------+---------+-------------------------------------+
-| lastUpdatedTime    | INTEGER | Last update timestamp               |
-+--------------------+---------+-------------------------------------+
-| mechanism          | TEXT    | Market mechanism (``dpm-2`` or      |
-|                    |         | ``cpmm-1``)                         |
-+--------------------+---------+-------------------------------------+
-| outcomeType        | TEXT    | Type of outcome (``BINARY``,        |
-|                    |         | ``FREE_RESPONSE``, etc.)            |
-+--------------------+---------+-------------------------------------+
-| p                  | REAL    | For CPMM markets only, probability  |
-|                    |         | constant                            |
-+--------------------+---------+-------------------------------------+
-| probability        | REAL    | Probability associated with the     |
-|                    |         | market                              |
-+--------------------+---------+-------------------------------------+
-| question           | TEXT    | Market question                     |
-+--------------------+---------+-------------------------------------+
-| textDescription    | TEXT    | Description of the market           |
-+--------------------+---------+-------------------------------------+
-| totalLiquidity     | REAL    | For CPMM markets, the amount of     |
-|                    |         | mana deposited into the liquidity   |
-|                    |         | pool                                |
-+--------------------+---------+-------------------------------------+
-| url                | TEXT    | URL related to the market           |
-+--------------------+---------+-------------------------------------+
-| volume             | REAL    | Trading volume for the market       |
-+--------------------+---------+-------------------------------------+
-| volume24Hours      | REAL    | Trading volume for the market in    |
-|                    |         | the last 24 hours                   |
-+--------------------+---------+-------------------------------------+
-| pool_NO            | REAL    | Liquidity of the 'NO' pool          |
-+--------------------+---------+-------------------------------------+
-| pool_YES           | REAL    | Liquidity of the 'YES' pool         |
-+--------------------+---------+-------------------------------------+
-| groupSlugs         | TEXT    | Group slugs associated with the     |
-|                    |         | market                              |
-+--------------------+---------+-------------------------------------+
-| retrievedTimestamp | INTEGER | Timestamp when data was retrieved   |
-+--------------------+---------+-------------------------------------+
-| lite               | INTEGER | Whether the market was retrieved as |
-|                    |         | a LiteMarket                        |
-+--------------------+---------+-------------------------------------+
-
-.. _3-multiple-choice-markets:
-
-3. Multiple Choice Markets
---------------------------
-
-+--------------------+---------+-------------------------------------+
-| Column             | Type    | Description                         |
-+====================+=========+=====================================+
-| id                 | TEXT    | Unique identifier for the market    |
-+--------------------+---------+-------------------------------------+
-| closeTime          | INTEGER | Min of creator's chosen date, and   |
-|                    |         | resolutionTime                      |
-+--------------------+---------+-------------------------------------+
-| createdTime        | INTEGER | Timestamp when the market was       |
-|                    |         | created (milliseconds since epoch)  |
-+--------------------+---------+-------------------------------------+
-| creatorId          | TEXT    | ID of the creator                   |
-+--------------------+---------+-------------------------------------+
-| creatorName        | TEXT    | Name of the creator                 |
-+--------------------+---------+-------------------------------------+
-| creatorUsername    | TEXT    | Username of the creator             |
-+--------------------+---------+-------------------------------------+
-| isResolved         | BOOLEAN | Whether the market is resolved      |
-+--------------------+---------+-------------------------------------+
-| lastUpdatedTime    | INTEGER | Last update timestamp               |
-+--------------------+---------+-------------------------------------+
-| mechanism          | TEXT    | Market mechanism (``dpm-2`` or      |
-|                    |         | ``cpmm-1``)                         |
-+--------------------+---------+-------------------------------------+
-| outcomeType        | TEXT    | Type of outcome (``BINARY``,        |
-|                    |         | ``FREE_RESPONSE``, etc.)            |
-+--------------------+---------+-------------------------------------+
-| question           | TEXT    | Market question                     |
-+--------------------+---------+-------------------------------------+
-| textDescription    | TEXT    | Description of the market           |
-+--------------------+---------+-------------------------------------+
-| totalLiquidity     | REAL    | For CPMM markets, the amount of     |
-|                    |         | mana deposited into the liquidity   |
-|                    |         | pool                                |
-+--------------------+---------+-------------------------------------+
-| volume             | REAL    | Market volume                       |
-+--------------------+---------+-------------------------------------+
-| volume24Hours      | REAL    | Market volume in the last 24 hours  |
-+--------------------+---------+-------------------------------------+
-| url                | TEXT    | URL related to the market           |
-+--------------------+---------+-------------------------------------+
-| groupSlugs         | TEXT    | Market group slugs                  |
-+--------------------+---------+-------------------------------------+
-| retrievedTimestamp | INTEGER | Timestamp when data was retrieved   |
-+--------------------+---------+-------------------------------------+
-| lite               | INTEGER | Whether the market was retrieved as |
-|                    |         | a LiteMarket flag                   |
-+--------------------+---------+-------------------------------------+
-
-.. _4-multiple-choice-market-answers:
-
-4. Multiple Choice Market Answers
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-+----------------+---------+-----------------------------------------+
-| Column         | Type    | Description                             |
-+================+=========+=========================================+
-| id             | INTEGER | Unique identifier for the answer,       |
-|                |         | auto-incremented                        |
-+----------------+---------+-----------------------------------------+
-| contractId     | TEXT    | Identifier for the associated market    |
-|                |         | contract                                |
-+----------------+---------+-----------------------------------------+
-| createdTime    | INTEGER | Timestamp when the answer was created   |
-+----------------+---------+-----------------------------------------+
-| fsUpdatedTime  | TEXT    | Timestamp of the last update for the    |
-|                |         | answer                                  |
-+----------------+---------+-----------------------------------------+
-| isOther        | INTEGER | Indicator if this is an 'other' option  |
-|                |         | (usually 0 or 1)                        |
-+----------------+---------+-----------------------------------------+
-| answerIndex    | INTEGER | Index or order of this answer in the    |
-|                |         | list                                    |
-+----------------+---------+-----------------------------------------+
-| probability    | REAL    | Probability associated with the answer  |
-+----------------+---------+-----------------------------------------+
-| subsidyPool    | REAL    | Subsidy pool amount for this answer     |
-+----------------+---------+-----------------------------------------+
-| text           | TEXT    | Textual description or content of the   |
-|                |         | answer                                  |
-+----------------+---------+-----------------------------------------+
-| totalLiquidity | REAL    | Total liquidity associated with this    |
-|                |         | answer                                  |
-+----------------+---------+-----------------------------------------+
-| userId         | TEXT    | Identifier for the user associated with |
-|                |         | this answer                             |
-+----------------+---------+-----------------------------------------+
-| pool_NO        | REAL    | Liquidity of the 'NO' pool for this     |
-|                |         | answer                                  |
-+----------------+---------+-----------------------------------------+
-| pool_YES       | REAL    | Liquidity of the 'YES' pool for this    |
-|                |         | answer                                  |
-+----------------+---------+-----------------------------------------+
-| FOREIGN KEY    | -       | ``contractId`` references the           |
-|                |         | ``multiple_choice_markets`` table's     |
-|                |         | ``id``                                  |
-+----------------+---------+-----------------------------------------+
-
-.. _5-contract-metrics:
-
-5. Contract Metrics
--------------------
-
-================== ======= =================================
-Column             Type    Description
-================== ======= =================================
-contractId         TEXT    Contract identifier
-hasNoShares        INTEGER Whether there are No shares
-hasShares          INTEGER Whether there are shares
-hasYesShares       INTEGER Whether there are Yes shares
-invested           REAL    Amount invested
-loan               REAL    Loan amount
-maxSharesOutcome   TEXT    Maximum shares outcome
-payout             REAL    Payout amount
-profit             REAL    Profit amount
-profitPercent      REAL    Profit percentage
-userId             TEXT    User ID
-userUsername       TEXT    User username
-userName           TEXT    User name
-lastBetTime        INTEGER Last bet timestamp
-retrievedTimestamp INTEGER Timestamp when data was retrieved
-================== ======= =================================
-
-.. _6-contract-metrics-from:
-
-6. Contract Metrics From
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-+---------------+---------+------------------------------------------+
-| Column        | Type    | Description                              |
-+===============+=========+==========================================+
-| id            | INTEGER | Unique identifier                        |
-+---------------+---------+------------------------------------------+
-| contractId    | TEXT    | Contract ID                              |
-+---------------+---------+------------------------------------------+
-| userId        | TEXT    | User ID                                  |
-+---------------+---------+------------------------------------------+
-| period        | TEXT    | Time period                              |
-+---------------+---------+------------------------------------------+
-| value         | REAL    | Value amount                             |
-+---------------+---------+------------------------------------------+
-| profit        | REAL    | Profit amount                            |
-+---------------+---------+------------------------------------------+
-| invested      | REAL    | Investment amount                        |
-+---------------+---------+------------------------------------------+
-| prevValue     | REAL    | Previous value                           |
-+---------------+---------+------------------------------------------+
-| profitPercent | REAL    | Profit percentage                        |
-+---------------+---------+------------------------------------------+
-| FOREIGN KEY   | -       | ``(contractId, userId)`` references the  |
-|               |         | ``contract_metrics`` table's             |
-|               |         | ``(contractId, userId)``                 |
-+---------------+---------+------------------------------------------+
-
-.. _7-contract-metrics-totalshares:
-
-7. Contract Metrics TotalShares
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-+----------------+---------+-----------------------------------------+
-| Column         | Type    | Description                             |
-+================+=========+=========================================+
-| id             | INTEGER | Unique identifier                       |
-+----------------+---------+-----------------------------------------+
-| contractId     | TEXT    | Contract ID                             |
-+----------------+---------+-----------------------------------------+
-| userId         | TEXT    | User ID                                 |
-+----------------+---------+-----------------------------------------+
-| outcome        | TEXT    | Outcome type                            |
-+----------------+---------+-----------------------------------------+
-| numberOfShares | REAL    | Number of shares                        |
-+----------------+---------+-----------------------------------------+
-| FOREIGN KEY    | -       | ``(contractId, userId)`` references the |
-|                |         | ``contract_metrics`` table's            |
-|                |         | ``(contractId, userId)``                |
-+----------------+---------+-----------------------------------------+
-
-.. _8-bets:
-
-8. Bets
--------
-
-================== ======= =================================
-Column             Type    Description
-================== ======= =================================
-id                 TEXT    Unique identifier for the bet
-userId             TEXT    User ID
-contractId         TEXT    Contract ID
-isFilled           INTEGER Whether the bet is filled
-amount             REAL    Amount of the bet
-probBefore         REAL    Probability before the bet
-isCancelled        INTEGER Whether the bet is cancelled
-outcome            TEXT    Bet outcome
-shares             REAL    Number of shares
-limitProb          REAL    Limit probability
-loanAmount         REAL    Loan amount
-orderAmount        REAL    Order amount
-probAfter          REAL    Probability after the bet
-createdTime        INTEGER Bet creation timestamp
-retrievedTimestamp INTEGER Timestamp when data was retrieved
-================== ======= =================================
-
-.. _9-bet-fees:
-
-9. Bet Fees
-~~~~~~~~~~~
-
-+--------------------+---------+-------------------------------------+
-| Column             | Type    | Description                         |
-+====================+=========+=====================================+
-| id                 | INTEGER | Unique identifier                   |
-+--------------------+---------+-------------------------------------+
-| betId              | TEXT    | Bet ID                              |
-+--------------------+---------+-------------------------------------+
-| userId             | TEXT    | User ID                             |
-+--------------------+---------+-------------------------------------+
-| fee                | REAL    | Fee amount                          |
-+--------------------+---------+-------------------------------------+
-| retrievedTimestamp | INTEGER | Data retrieval timestamp            |
-+--------------------+---------+-------------------------------------+
-| FOREIGN KEY        | -       | ``betId`` references the ``bets``   |
-|                    |         | table's ``id``                      |
-+--------------------+---------+-------------------------------------+
-
-.. _10-bet-fills:
-
-10. Bet Fills
-~~~~~~~~~~~~~
-
-============ ======= ================================================
-Column       Type    Description
-============ ======= ================================================
-id           INTEGER Unique identifier
-betId        TEXT    Bet ID
-timestamp    INTEGER Timestamp for when the bet was filled
-matchedBetId TEXT    The ID of the bet which filled this bet
-amount       REAL    Amount that was filled
-shares       REAL    Number of shares that were filled
-FOREIGN KEY  -       ``betId`` references the ``bets`` table's ``id``
-============ ======= ================================================

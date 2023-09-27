@@ -1,0 +1,22 @@
+- Read dumps
+- Coagulate multiple subscriptions into one and modify polling times
+    - threadsafe job registry
+
+Stats:
+https://github.com/JRPdata/wastebook/blob/main/calculate_bet.ipynb
+
+Testing
+
+Specify db filepath
+
+should be able to add automations whenever
+
+utilities like total traders in a market
+
+Done:
+- rename to autofold
+- Document database tables
+- Main interface is Bot class, register strategies with it
+- Rate Limiting
+- Rename strategies to automations
+

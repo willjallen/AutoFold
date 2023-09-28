@@ -34,12 +34,6 @@ class AutomationBot:
 	
 		self.dev_api_endpoint = dev_api_endpoint
   
-		# Bind Ctrl+C to the stop function
-		# signal.signal(signal.SIGINT, self.stop) 
-  
-		# Dynamically set the excepthook
-		# sys.excepthook = self.automation_bot_excepthook
-
 		self._started = False
   
 		self._automations = []
@@ -52,18 +46,6 @@ class AutomationBot:
 		self.manifold_db_reader = None
 		self.manifold_db_writer = None
 		self.manifold_subscriber = None
-
-	def __enter__(self):
-		return self
-
-	def __exit__(self, exc_type, exc_value, traceback):
-		self.stop() 
-
-	def automation_bot_excepthook(self, exc_type, exc_value, exc_traceback):
-		self.stop()
-		
-		# Call the original excepthook
-		sys.__excepthook__(exc_type, exc_value, exc_traceback) 
 
 	def register_automation(self, automation_obj, automation_name, run_on_bot_start=True):
 		'''
@@ -108,38 +90,34 @@ class AutomationBot:
 		:raises RuntimeError: if no automations have been registered.
 		''' 
 
-		try:
-			self.manifold_api = ManifoldAPI(dev_mode=self.dev_api_endpoint)
+		self.manifold_api = ManifoldAPI(dev_mode=self.dev_api_endpoint)
 
-			self.manifold_db = ManifoldDatabase()
-			self.manifold_db_reader = ManifoldDatabaseReader(self.manifold_db)
-			self.manifold_db_writer = ManifoldDatabaseWriter(self.manifold_db)
-			self.manifold_db.create_tables()
-	
-			self.manifold_subscriber = ManifoldSubscriber(self.manifold_api, self.manifold_db, self.manifold_db_writer)
-	
-			self._executor = ThreadPoolExecutor(thread_name_prefix="BOT_AUTOMATION_POOL", max_workers=20) 
+		self.manifold_db = ManifoldDatabase()
+		self.manifold_db_reader = ManifoldDatabaseReader(self.manifold_db)
+		self.manifold_db_writer = ManifoldDatabaseWriter(self.manifold_db)
+		self.manifold_db.create_tables()
 
-			self.started = True
-		
-			# Loop to check for the stop condition
-			while not self._shutdown_event.is_set():
-				# Check for unregistered automations and/or automations that should be executed
-				for automation in self._automations:
-					if not automation['registered']:
-						logger.debug("Registering automation {automation}")
-						automation['object']._register(self)
-						automation['registered'] = True
-					if not automation['running'] and automation['shouldRun']:
-						automation['running'] = True
-						automation['shouldRun'] = False
-						self._automation_futures.append(self._executor.submit(self._run_automation, automation))
-		
-				time.sleep(1)  # Sleep for 1 second
+		self.manifold_subscriber = ManifoldSubscriber(self.manifold_api, self.manifold_db, self.manifold_db_writer)
+
+		self._executor = ThreadPoolExecutor(thread_name_prefix="BOT_AUTOMATION_POOL", max_workers=20) 
+
+		self.started = True
 	
-			self.stop()
-		finally:
-			self.stop()
+		# Loop to check for the stop condition
+		while not self._shutdown_event.is_set():
+			# Check for unregistered automations and/or automations that should be executed
+			for automation in self._automations:
+				if not automation['registered']:
+					logger.debug("Registering automation {automation}")
+					automation['object']._register(self)
+					automation['registered'] = True
+				if not automation['running'] and automation['shouldRun']:
+					automation['running'] = True
+					automation['shouldRun'] = False
+					self._automation_futures.append(self._executor.submit(self._run_automation, automation))
+	
+			time.sleep(1)  # Sleep for 1 second
+	
 
 	'''
 		Runs an automation.

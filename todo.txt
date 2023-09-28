@@ -1,17 +1,18 @@
 - Read dumps
-- Coagulate multiple subscriptions into one and modify polling times
+- Redo subscriber
+    - Coagulate multiple subscriptions into one and modify polling times
     - threadsafe job registry
+- Testing
 
-Stats:
-https://github.com/JRPdata/wastebook/blob/main/calculate_bet.ipynb
+- Utilities
+    - cpmm calculator:
+    https://github.com/JRPdata/wastebook/blob/main/calculate_bet.ipynb
+    - other stuff like total traders in a market
 
-Testing
+- Socket
 
-Specify db filepath
 
-should be able to add automations whenever
 
-utilities like total traders in a market
 
 Done:
 - rename to autofold
@@ -19,4 +20,5 @@ Done:
 - Main interface is Bot class, register strategies with it
 - Rate Limiting
 - Rename strategies to automations
-
+- Specify db filepath
+- should be able to add automations whenever

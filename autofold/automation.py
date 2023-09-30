@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from tinydb import TinyDB
-import threading
 
 class Automation(ABC):
 	'''

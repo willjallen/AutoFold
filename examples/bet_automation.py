@@ -49,9 +49,15 @@ class BetAutomation(Automation):
 															   callback=self.track_position) 
    
 		# You can add extra logic here to repeat the automation every hour or whatever
-		while not self.running:
-			# ... logic
-			time.sleep(60 * 60)
+		next_run_timestamp = time.time() + 60 * 60
+		while self.running:
+			if time.time() >= next_run_timestamp:
+				next_run_timestamp = time.time() + 60 * 60
+				# ... logic
+				pass
+
+			# Check the self.running condition once a second
+			time.sleep(1)
 	
 	def stop(self):
 		self.running = False
@@ -275,6 +281,7 @@ class BetAutomation(Automation):
 
 def main():
 
+
 	# Set up logging
 	log_format = "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
 
@@ -292,11 +299,15 @@ def main():
 	automation_bot.register_automation(example_automation, "example_automation")
 
 	# Run the bot
-	automation_bot.start()
+	# Add try-except for CTRL+C, otherwise you'll get dangling threads when exiting this way
+	try:	
+		automation_bot.start()
 
-	# time.sleep(2)
-	input("Press any key to exit")
- 
+		input("Press any key to exit")
+	except KeyboardInterrupt:
+		automation_bot.stop()
+		return
+	
 	automation_bot.stop()
 
 

@@ -45,7 +45,7 @@ class BetAutomation(Automation):
 			logger.info(f"Subscribing to future bets of user {best_position['userName']} in market {best_position['contractId']} with polling time {60} seconds")
 			self.manifold_subscriber.subscribe_to_market_positions(marketId=best_position["contractId"],
 															   userId=best_position["userId"],
-															   polling_time=60,
+															   polling_time=5,
 															   callback=self.track_position) 
    
 		# You can add extra logic here to repeat the automation every hour or whatever
@@ -214,7 +214,7 @@ class BetAutomation(Automation):
 		logger.info(f"Subscribing to future bets of user {best_position['userName']} in market {recent_bet['contractId']} with polling time {60} seconds")
 		self.manifold_subscriber.subscribe_to_market_positions(marketId=recent_bet["contractId"],
 															   userId=recent_bet["userId"],
-															   polling_time=60,
+															   polling_time=5,
 															   callback=self.track_position)
 		
 		# Done!

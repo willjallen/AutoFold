@@ -9,9 +9,13 @@ Testing
 
 Specify db filepath
 
-should be able to add automations whenever
 
 utilities like total traders in a market
+
+other market types
+
+should make sure two simultaneous updates from api to db from different sources only writes most current info
+(check for API-side timestamps if present)
 
 Done:
 - rename to autofold
@@ -19,4 +23,6 @@ Done:
 - Main interface is Bot class, register strategies with it
 - Rate Limiting
 - Rename strategies to automations
+- should be able to add automations whenever
+ 
 

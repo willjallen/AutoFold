@@ -168,7 +168,7 @@ class AutomationBot:
 		try:
 			automation['object'].start()
 		except Exception as e:
-			logger.error(f"Caught exception in automation: {automation['name']}", e)
+			logger.error(f"Caught exception in automation: {automation['name']} {e}")
 			self.stop()
 		
 		# When the automation finishes

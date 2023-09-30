@@ -93,9 +93,9 @@ class AutomationBot:
 		self.manifold_api = ManifoldAPI(dev_mode=self.dev_api_endpoint)
 
 		self.manifold_db = ManifoldDatabase()
+		self.manifold_db.create_tables()
 		self.manifold_db_reader = ManifoldDatabaseReader(self.manifold_db)
 		self.manifold_db_writer = ManifoldDatabaseWriter(self.manifold_db)
-		self.manifold_db.create_tables()
 
 		self.manifold_subscriber = ManifoldSubscriber(self.manifold_api, self.manifold_db, self.manifold_db_writer)
 

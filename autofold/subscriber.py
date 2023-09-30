@@ -12,64 +12,11 @@ from typing import Callable, List, Any, Union
 from concurrent.futures import Future
 
 
-'''
-TODO:
-
-This whole thing has a litany of edge cases and problems when there are multiple strategies involved.
-As it stands now it *works*, just not as robust as I would like.
-
-Thoughts:
-All callbacks associated with job should be fired. 
-Right now it's possible for a subscriber to miss a callback if two automations are subscribed to the same endpoint
-
-Replace APScheduler with custom scheduler
-- Job objects should be stored with function signature for proper sharing
-- Job run interval should be min(polling_times) (coalesce jobs)
-- Polling times per subscriber should be respected
-	- Add additional parameter callback_soonest_update
-		- If automation A subscribes to endpoint at interval 30 seconds and automation B subscribes at 60 seconds, should automation B wait for the full 60 seconds or update as soon as A is finished
-
-  
-
-job = {
-	"function": "subscribe_to_user_info",   // The function that is responsible for the task
-	"params": { /*params*/ },                // Parameters needed for the function
-	"lastUpdate": 34234552,                  // A timestamp of the last update
-	"callbacks": [                           // An array of callback functions
-		{
-			"function": "foo",
-			"polling_time": 60
-			"next_call_time": 3232432
-			// any other properties you may want to include for the callback
-		}
-	],
-	"update_interval": min(polling_times)
-	"status": "pending",                     // The current status of the job (e.g., pending, in-progress, complete, failed)
-	"attempts": 0,                           // The number of attempts made to execute the job
-	"maxAttempts": 5,                        // The maximum number of retries before marking the job as failed
-	"priority": 1,                           // Priority level (lower number means higher priority)
-	"timeout": 3000,                         // Timeout in milliseconds
-	"createdOn": 162344554,                  // A timestamp of when the job was created
-	"nextExecution": null,                   // When the job is set to be executed next
-	"errorLog": [],                          // Any errors or exceptions caught during execution
-	"result": null,                          // The result returned by the function, if any
-}
-
-Callbacks are always gaurenteed to have updated information upon their firing
-
-Loop through jobs
-Check if they need to update (min polling times of callbacks)
-Loop through callbacks
-Fire callback
-
-'''
-
-
 class Job:
 	def __init__(self, action: str, function: Callable, params: Any,
 				 job_type: str, callbacks: list[dict], future: Union[None, Future] = None):
 		self.action = action  # "add" or "remove"
-		self.status = "pending" # The current status of the job (pending, executing) 
+		self.status = "pending" # The current status of the job (pending, executing, finished) 
 		self.function = function  # Function responsible for the task
 		self.params = params  # Parameters needed for the function
 		self.job_type = job_type  # "oneoff" or "interval"
@@ -107,12 +54,18 @@ class Job:
 		"""
 		self.function(*self.params)
 		self.last_execution_time = time.time()  # Record the last execution time
-		self.next_execution_time = time.time() + self.update_interval # Set next execution time
-
+ 
+		if self.future:
+			self.future.set_result("done")
+			self.future = None
+ 
 		if self.job_type == "oneoff":
-			self.future.set_result("done")	
-   
-		self.status = "pending"
+			self.status = "finished"
+  
+		if self.job_type == "interval":
+			self.next_execution_time = self.last_execution_time + self.update_interval # Set next execution time
+			self.status = "pending"
+
 
 	def __repr__(self):
 		return f"<Job(function={self.function.__name__}, params={self.params})>"
@@ -127,8 +80,8 @@ class ManifoldSubscriber():
 		self._jobs = []
   
 		self._thread = threading.Thread(target=self._run, name="MF_SUBSCRIBER") 
-		self._executor = ThreadPoolExecutor(thread_name_prefix="MF_SUBSCRIBER_EXECUTOR", max_workers=5)
-		self._jobs_queue = Queue(maxsize=1000)
+		self._executor = ThreadPoolExecutor(thread_name_prefix="MF_SUBSCRIBER_EXECUTOR", max_workers=20)
+		self._jobs_queue = Queue(maxsize=20)
  
 		self.running = True
 	
@@ -172,14 +125,7 @@ class ManifoldSubscriber():
 				if job.next_execution_time <= current_time and job.status != "executing":
 					job.status = "executing"
 					logger.debug(f"Executing job {job}")
-					if job.job_type == "oneoff":
-						future = self._executor.submit(job.execute)
-						# Remove one-off jobs after execution
-						self._jobs.remove(job)
-					elif job.job_type == "interval":
-						future = self._executor.submit(job.execute)
-						# Update next execution time
-						job.next_execution_time = current_time + job.update_interval
+					future = self._executor.submit(job.execute)
 
 				# Check callbacks
 				for callback in job.callbacks:
@@ -195,6 +141,7 @@ class ManifoldSubscriber():
 	def _add_job(self, new_job):
 	 
 		# Coalesce into existing job
+		# An interval job always takes precedence for the job type
 		for job in self._jobs:
 			if job.function == new_job.function and job.params == new_job.params:
 				# One-off job
@@ -208,6 +155,11 @@ class ManifoldSubscriber():
    
 				# Interval job
 				if new_job.job_type == "interval":
+					# Job becomes an interval type
+					job.job_type = "interval"
+					# Change status if applicable
+					if job.status == "finished":
+						job.status = "pending"
 					# Is there a callback?
 					if len(new_job.callbacks) != 0:
 						# Yes, add the new callback
@@ -232,26 +184,6 @@ class ManifoldSubscriber():
 	def _remove_job(self, job_to_remove):
 		# Remove the job by comparing function and parameters
 		self._jobs = [job for job in self._jobs if not (job.function == job_to_remove.function and job.params == job_to_remove.params)]
-
-
- 
-	# def register_callback(self, job_id, callback):
-	# 	'''
-	# 	Register a callback function for a specific job ID
-	# 	'''
-	# 	logger.debug(f"Adding callback {callback.__name__} to job id {job_id}")
-	# 	self.callbacks[job_id].append(callback)
-
-	# def unregister_callback(self, job_id, callback):
-	# 	'''
-	# 	Unregister a specific callback function for a specific job ID
-	# 	'''
-	# 	if callback in self.callbacks[job_id]:
-	# 		logger.debug(f"Removing callback {callback.__name__} from job id {job_id}")
-	# 		self.callbacks[job_id].remove(callback)
-	# 		# If no more callbacks for this job ID, delete the job ID entry
-	# 		if not self.callbacks[job_id]:
-	# 			del self.callbacks[job_id]
 
 	def subscribe_to_user_info(self, userId, polling_time=60, callback=None):
 		'''
@@ -384,7 +316,7 @@ class ManifoldSubscriber():
 	def _update_bets(self, userId=None, username=None, contractId=None, contractSlug=None):
 		logger.debug(f"Updating bets with userId={userId}, username={username}, contractId={contractId} and contractSlug={contractSlug}")
   
-		bets = self._manifold_api.retrieve_all_data(api_call_func=self.manifold_api.get_bets, max_limit=1000, params={"userId": userId, "username": username, "contractId": contractId, "contractSlug": contractSlug})
+		bets = self._manifold_api.retrieve_all_data(api_call_func=self._manifold_api.get_bets, max_limit=1000, params={"userId": userId, "username": username, "contractId": contractId, "contractSlug": contractSlug})
 		self._manifold_db_writer.queue_write_operation(function=self._manifold_db.upsert_bets, data=bets).result()
 
 	def subscribe_to_market_positions(self, marketId, userId=None, polling_time=60, callback=None):
@@ -498,7 +430,7 @@ class ManifoldSubscriber():
 	def _update_all_users(self):
 		logger.debug(f"Updating profiles of all users")
   
-		users = self._manifold_api.retrieve_all_data(self.manifold_api.get_users, max_limit=1000)
+		users = self._manifold_api.retrieve_all_data(self._manifold_api.get_users, max_limit=1000)
 		self._manifold_db_writer.queue_write_operation(function=self._manifold_db.upsert_users, data=users).result()
 
 	def subscribe_to_all_markets(self, polling_time=3600, callback=None):
@@ -568,4 +500,23 @@ class ManifoldSubscriber():
    
 		self._manifold_db_writer.queue_write_operation(function=self._manifold_db.upsert_binary_choice_markets, data=binary_choice_markets).result()
 		self._manifold_db_writer.queue_write_operation(function=self._manifold_db.upsert_multiple_choice_markets, data=multiple_choice_markets).result()
+ 
+ 
   
+	# def register_callback(self, job_id, callback):
+	# 	'''
+	# 	Register a callback function for a specific job ID
+	# 	'''
+	# 	logger.debug(f"Adding callback {callback.__name__} to job id {job_id}")
+	# 	self.callbacks[job_id].append(callback)
+
+	# def unregister_callback(self, job_id, callback):
+	# 	'''
+	# 	Unregister a specific callback function for a specific job ID
+	# 	'''
+	# 	if callback in self.callbacks[job_id]:
+	# 		logger.debug(f"Removing callback {callback.__name__} from job id {job_id}")
+	# 		self.callbacks[job_id].remove(callback)
+	# 		# If no more callbacks for this job ID, delete the job ID entry
+	# 		if not self.callbacks[job_id]:
+	# 			del self.callbacks[job_id]P 

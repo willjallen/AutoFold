@@ -14,7 +14,7 @@ from concurrent.futures import Future
 
 class Job:
 	def __init__(self, action: str, function: Callable, params: Any,
-				 job_type: str, callbacks: list[dict], future: Union[None, Future] = None):
+				 job_type: str, callbacks: list[dict] = None, future: Union[None, Future] = None):
 		self.action = action  # "add" or "remove"
 		self.status = "pending" # The current status of the job (pending, executing, finished) 
 		self.function = function  # Function responsible for the task
@@ -122,7 +122,7 @@ class ManifoldSubscriber():
 			current_time = time.time()
 			for job in self._jobs:
 				# Check if it's time for the job to be executed
-				if job.next_execution_time <= current_time and job.status != "executing":
+				if job.next_execution_time <= current_time and job.status == "pending":
 					job.status = "executing"
 					logger.debug(f"Executing job {job}")
 					future = self._executor.submit(job.execute)
@@ -316,7 +316,7 @@ class ManifoldSubscriber():
 	def _update_bets(self, userId=None, username=None, contractId=None, contractSlug=None):
 		logger.debug(f"Updating bets with userId={userId}, username={username}, contractId={contractId} and contractSlug={contractSlug}")
   
-		bets = self._manifold_api.retrieve_all_data(api_call_func=self._manifold_api.get_bets, max_limit=1000, params={"userId": userId, "username": username, "contractId": contractId, "contractSlug": contractSlug})
+		bets = self._manifold_api.retrieve_all_data(api_call_func=self._manifold_api.get_bets, max_limit=1000, userId=userId, username=username, contractId=contractId,  contractSlug=contractSlug)
 		self._manifold_db_writer.queue_write_operation(function=self._manifold_db.upsert_bets, data=bets).result()
 
 	def subscribe_to_market_positions(self, marketId, userId=None, polling_time=60, callback=None):

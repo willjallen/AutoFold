@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from tinydb import TinyDB
+import os
 
 class Automation(ABC):
 	'''
@@ -21,21 +22,25 @@ class Automation(ABC):
 	- ``manifold_subscriber``: The ManifoldSubscriber instance extracted from automation_bot.
 	- ``db``: The TinyDB instance for this automation.
 	''' 
-	def __init__(self, db_name: str=""):
+	def __init__(self, tiny_db_path: str):
 		'''
 		Initializer for the automation class.
 
-		:param str db_name: Required. The name of the database file to use, without the extension.
+		:param str tiny_db_path: Required. The path to the desired tinydb file to use. Should be a .json file.
 		''' 
-		self.db_name = db_name
+		self.tiny_db_path = tiny_db_path
+  
+		# Ensure the directory exists
+		dir_name = os.path.dirname(self.tiny_db_path)
+		if dir_name and not os.path.exists(dir_name):
+			os.makedirs(dir_name) 
 
 	def _register(self, automation_bot):
 		self.automation_bot = automation_bot
 		self.manifold_api = automation_bot.manifold_api
 		self.manifold_db_reader = automation_bot.manifold_db_reader
 		self.manifold_subscriber = automation_bot.manifold_subscriber
-		if self.db_name:
-			self.db = TinyDB('dbs/'+self.db_name+'.json')
+		self.db = TinyDB(self.tiny_db_path)
 		
 	
 	@abstractmethod

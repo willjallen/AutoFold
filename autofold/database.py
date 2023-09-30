@@ -5,6 +5,7 @@ import concurrent.futures
 import sqlite3
 import threading
 import time
+import os
 
 from autofold.utils.str_utils import collapse_list_of_strings_to_string
 import concurrent.futures
@@ -40,12 +41,34 @@ def prepare_and_execute_multi_deletion(conn, query, ids):
 
 
 class ManifoldDatabase:
-    def __init__(self):
+    '''
+    ManifoldDatabase class to manage SQLite3 database connections.
+
+    This class uses thread-local storage to ensure that each thread has its
+    own SQLite3 database connection. It also ensures that the database and 
+    its parent directory exist before creating a connection.
+
+    Attributes:
+    -----------
+    - ``db_path``: The path to the SQLite3 database file
+    - ``local_storage``: Thread-local storage for SQLite3 connections
+    
+    :param str db_path: Reqauired. The path to the SQLite3 database file. Should be a .db file.
+    :raises OSError: If the specified directory cannot be created. 
+    ''' 
+    def __init__(self, db_path):
+        self.db_path = db_path
+
+        # Ensure the directory exists
+        dir_name = os.path.dirname(self.db_path)
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+
         self.local_storage = threading.local()
 
     def get_conn(self):
         if not hasattr(self.local_storage, "conn"):
-            self.local_storage.conn = sqlite3.connect("dbs/manifold_database.db")
+            self.local_storage.conn = sqlite3.connect(self.db_path)
             self.local_storage.conn.execute("PRAGMA journal_mode=WAL;")
         return self.local_storage.conn
 

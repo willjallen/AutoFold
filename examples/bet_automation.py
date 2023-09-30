@@ -6,8 +6,8 @@ from autofold.bot import AutomationBot
 
 
 class BetAutomation(Automation):
-	def __init__(self, db_name):
-		super().__init__(db_name)
+	def __init__(self, tiny_db_path):
+		super().__init__(tiny_db_path)
 		
 	
 	def start(self):
@@ -45,7 +45,7 @@ class BetAutomation(Automation):
 			logger.info(f"Subscribing to future bets of user {best_position['userName']} in market {best_position['contractId']} with polling time {60} seconds")
 			self.manifold_subscriber.subscribe_to_market_positions(marketId=best_position["contractId"],
 															   userId=best_position["userId"],
-															   polling_time=5,
+															   polling_time=15,
 															   callback=self.track_position) 
    
 		# You can add extra logic here to repeat the automation every hour or whatever
@@ -72,7 +72,7 @@ class BetAutomation(Automation):
 
 		# Update the manifold database with all markets
 		logger.info("Updating the manifold database with all markets. (This may take a while)") 
-		# self.manifold_subscriber.update_all_markets()
+		# self.manifold_subscriber.update_all_markets().result()
 
 		# Find top 10 binary choice markets with highest volume 
 		logger.debug("Finding top 10 unresolved markets with highest 24hr volume")
@@ -106,7 +106,7 @@ class BetAutomation(Automation):
 		logger.info("Fetching positions for each of the top 10 markets")
 		for market in markets:
 			logger.debug(f"Fetching positions for market {market['id']}")
-			self.manifold_subscriber.update_market_positions(marketId=market["id"])
+			self.manifold_subscriber.update_market_positions(marketId=market["id"]).result()
 		   
 		# Extract market ids
 		market_ids = [market["id"] for market in markets]
@@ -171,7 +171,7 @@ class BetAutomation(Automation):
 	   
 		# Update the bets from the user with the best position
 		logger.info(f"Fetching bets for user {best_position['userName']}")
-		self.manifold_subscriber.update_bets(userId=best_position["userId"], contractId=best_position["contractId"])
+		self.manifold_subscriber.update_bets(userId=best_position["userId"], contractId=best_position["contractId"]).result()
 		
 		# Find the most recent bet from the user with the best position
 		logger.debug(f"Finding most recent bet for user {best_position['userId']}")
@@ -220,7 +220,7 @@ class BetAutomation(Automation):
 		logger.info(f"Subscribing to future bets of user {best_position['userName']} in market {recent_bet['contractId']} with polling time {60} seconds")
 		self.manifold_subscriber.subscribe_to_market_positions(marketId=recent_bet["contractId"],
 															   userId=recent_bet["userId"],
-															   polling_time=5,
+															   polling_time=15,
 															   callback=self.track_position)
 		
 		# Done!
@@ -290,10 +290,10 @@ def main():
 	logger.info("Logging has been set up!") 
 
 	# Init automation
-	example_automation = BetAutomation(db_name='example_automation')
+	example_automation = BetAutomation(tiny_db_path='dbs/example_automation.json')
 
 	# Init bot
-	automation_bot = AutomationBot()
+	automation_bot = AutomationBot(manifold_db_path="dbs/manifold_database.db")
 
 	# Register it
 	automation_bot.register_automation(example_automation, "example_automation")

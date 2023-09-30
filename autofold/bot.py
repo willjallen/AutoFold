@@ -18,6 +18,8 @@ class AutomationBot:
 	The AutomationBot is responsible for starting, stopping and maintaining threads and connections to the manifold API, manifold database and manifold subscriber.
  	Additionally, AutomationBot is reponsible for maintaining, adding, removing, starting and stopping automations. 
 
+	:param str manifold_db_path: Required. The desired path for the manifold database.
+
 	:param bool dev_api_endpoint: Optional. 
  		Whether to use the dev.manifold.markets endpoint. Useful for testing. Requires an API key for dev.manifold.markets. Default is False.
  
@@ -30,8 +32,9 @@ class AutomationBot:
 	- ``manifold_db_writer``: The ManifoldDatabaseWriter instance
 	- ``manifold_subscriber``: The ManifoldSubscriber instance
 	''' 
-	def __init__(self, dev_api_endpoint=False):
-	
+	def __init__(self, manifold_db_path, dev_api_endpoint=False):
+
+		self.manifold_db_path = manifold_db_path
 		self.dev_api_endpoint = dev_api_endpoint
   
 		self._started = False
@@ -92,7 +95,7 @@ class AutomationBot:
 
 		self.manifold_api = ManifoldAPI(dev_mode=self.dev_api_endpoint)
 
-		self.manifold_db = ManifoldDatabase()
+		self.manifold_db = ManifoldDatabase(self.manifold_db_path)
 		self.manifold_db.create_tables()
 		self.manifold_db_reader = ManifoldDatabaseReader(self.manifold_db)
 		self.manifold_db_writer = ManifoldDatabaseWriter(self.manifold_db)

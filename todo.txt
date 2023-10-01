@@ -11,7 +11,9 @@
 
 - Socket
 
-
+Subscriber
+- Better docstrings
+- Better logging
 
 
 other market types
@@ -26,7 +28,4 @@ Done:
 - Rate Limiting
 - Rename strategies to automations
 - should be able to add automations whenever
- 
-
 - Specify db filepath
-- should be able to add automations whenever

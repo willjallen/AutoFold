@@ -38,7 +38,9 @@ Features:
  
 
 
-.. _list of API calls: https://loguru.readthedocs.io/en/stable/api/logger.html#file
+.. _list of API calls: https://manifoldbot.readthedocs.io/en/latest/manifold_interfaces/api.html
+
+.. begin-quick-start 
 
 Installation
 ------------

@@ -34,7 +34,7 @@ Table of contents
 
 .. toctree::
    :maxdepth: 1
-   :caption: Automation Interfaces
+   :caption: Utilities
 
    utils/utils.rst
 

@@ -52,11 +52,13 @@ class Job:
 		"""
 		Executes the job's function with its parameters.
 		"""
+		# print("here????")
+		# print(self.function, *self.params, self.params)
 		self.function(*self.params)
 		self.last_execution_time = time.time()  # Record the last execution time
  
 		if self.future:
-			self.future.set_result("done")
+			self.future.set_result(True)
 			self.future = None
  
 		if self.job_type == "oneoff":
@@ -185,7 +187,7 @@ class ManifoldSubscriber():
 		# Remove the job by comparing function and parameters
 		self._jobs = [job for job in self._jobs if not (job.function == job_to_remove.function and job.params == job_to_remove.params)]
 
-	def subscribe_to_user_info(self, userId, polling_time=60, callback=None):
+	def subscribe_to_user(self, userId, polling_time=60, callback=None):
 		'''
 		Continuously retrieves the profile of a specified user and updates the database.
 
@@ -202,8 +204,9 @@ class ManifoldSubscriber():
 		logger.debug(f"Subscribing to profile of user {userId} with polling time {polling_time} seconds")
   
 		job = Job(action="add", 
-				function=self._update_user_info,
-			   	params=(userId),
+				function=self._update_user,
+			   	params=(userId,),
+				job_type="interval",
 				callbacks=[                           
 				{
 					"function": callback,
@@ -213,7 +216,7 @@ class ManifoldSubscriber():
   
 		self._jobs_queue.put(job)
 
-	def unsubscribe_to_user_info(self, userId):
+	def unsubscribe_to_user(self, userId):
 		'''
 		Stops the continuous retrieval of the profile of a specified user and removes all associated callbacks.
 
@@ -227,12 +230,12 @@ class ManifoldSubscriber():
 		logger.debug(f"Unsubscribing to profile of user {userId}")
 	 
 		job = Job(action="remove", 
-				function=self._update_user_info,
-			   	params=(userId))
+				function=self._update_user,
+			   	params=(userId,))
 
 		self._jobs_queue.put(job)
 
-	def update_user_info(self, userId):
+	def update_user(self, userId):
 		'''
 		Retrieves the profile of a specified user by their userId and updates the database with the fetched data.
 
@@ -246,25 +249,20 @@ class ManifoldSubscriber():
 		logger.debug(f"Updating profile of user {userId}")
 	 
 		future = Future()	
-  
-		job = {
-			"action": "add",
-			"function": self._update_user_info,   
-			"params": (userId),                
-			"job_type": "oneoff",
-			"future": future,
-		} 	 
-   
+
+		job = Job(action="add", 
+				function=self._update_user,
+			   	params=(userId,),
+       			job_type="oneoff",
+          		future=future)
+
 		self._jobs_queue.put(job)
 		return future
  
-	def _update_user_info(self, userId, future):
+	def _update_user(self, userId):
 		logger.debug(f"Updating profile for user {userId}")
 		user = self._manifold_api.get_user_by_id(userId=userId).result()
 		self._manifold_db_writer.queue_write_operation(function=self._manifold_db.upsert_users, data=[user]).result()
-  
-		if future:
-			future.set_result("done")
 	
 	def subscribe_to_bets(self, userId=None, username=None, contractId=None, contractSlug=None, polling_time=60, callback=None):
 		'''

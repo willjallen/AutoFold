@@ -1,6 +1,11 @@
 from abc import ABC, abstractmethod
+from typing import Type
 from tinydb import TinyDB
 import os
+from autofold.api import ManifoldAPI
+from autofold.bot import AutomationBot
+from autofold.subscriber import ManifoldSubscriber
+from autofold.database import ManifoldDatabaseReader
 
 class Automation(ABC):
 	'''
@@ -16,19 +21,25 @@ class Automation(ABC):
 
 	Attributes:
 	-----------
-	- ``automation_bot``: The ManifoldBot instance.
+	- ``automation_bot``: The AutomationBot instance.
 	- ``manifold_api``: The ManifoldAPI instance extracted from automation_bot.
 	- ``manifold_db_reader``: The ManifoldDatabaseReader instance extracted from automation_bot.
 	- ``manifold_subscriber``: The ManifoldSubscriber instance extracted from automation_bot.
 	- ``db``: The TinyDB instance for this automation.
 	''' 
+
 	def __init__(self, tiny_db_path: str):
 		'''
 		Initializer for the automation class.
 
 		:param str tiny_db_path: Required. The path to the desired tinydb file to use. Should be a .json file.
 		''' 
-		self.tiny_db_path = tiny_db_path
+		self.tiny_db_path: str = tiny_db_path
+		self.automation_bot: AutomationBot = None
+		self.manifold_api: ManifoldAPI = None
+		self.manifold_db_reader: ManifoldDatabaseReader = None
+		self.manifold_subscriber: ManifoldSubscriber = None
+		self.db: TinyDB = None 
   
 		# Ensure the directory exists
 		dir_name = os.path.dirname(self.tiny_db_path)

@@ -4,7 +4,6 @@ import sys
 import signal
 import threading
 import time
-from autofold.automation import Automation
 from autofold.api import ManifoldAPI
 from autofold.database import ManifoldDatabase
 from autofold.database import ManifoldDatabaseWriter
@@ -67,6 +66,8 @@ class AutomationBot:
 			bot = ManifoldBot()
 			bot.register_automation(MyCustomAutomation)
 		''' 
+		from autofold.automation import Automation
+  
 		if not isinstance(automation_obj, Automation):
 			logger.error(f"{automation_obj} must be of a subclass of type Automation")
 			return

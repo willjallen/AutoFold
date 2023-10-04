@@ -89,12 +89,51 @@ class ManifoldDatabase:
             username TEXT,
             url TEXT,
             bio TEXT,
+            streakForgiveness INTEGER,
+            referredByUserId TEXT,
+            lastBetTime INTEGER,
+            referredByContractId TEXT,
+            currentBettingStreak INTEGER,
+            userDeleted BOOLEAN,
+            marketsCreatedThisWeek INTEGER,
             balance REAL,
             totalDeposits REAL,
-            totalPnLCached REAL,
-            retrievedTimestamp INTEGER
+            nextLoanCached REAL,
+            twitterHandle TEXT,
+            followerCountCached INTEGER,
+            metricsLastUpdated INTEGER,
+            hasSeenContractFollowModal BOOLEAN,
+            fractionResolvedCorrectly REAL,
+            isBot BOOLEAN,
+            isAdmin BOOLEAN,
+            isTrustworthy BOOLEAN,
+            isBannedFromPosting BOOLEAN
         );
         """)
+        
+        # Create 'nested' profit cached table
+        conn.execute("""
+        CREATE TABLE IF NOT EXISTS users_profit_cached (
+            userId TEXT,
+            daily REAL,
+            weekly REAL,
+            monthly REAL,
+            allTime REAL,
+            FOREIGN KEY (userId) REFERENCES users (id)
+        ); 
+        """) 
+       
+        # Create 'nested' creator traders table
+        conn.execute("""
+        CREATE TABLE IF NOT EXISTS users_creator_traders (
+            userId TEXT,
+            daily INTEGER,
+            weekly INTEGER,
+            monthly INTEGER,
+            allTime INTEGER,
+            FOREIGN KEY (userId) REFERENCES users (id)
+        ); 
+        """)  
         
         '''
         ########################################################
@@ -291,41 +330,71 @@ class ManifoldDatabase:
     def upsert_users(self, users: list[dict]):
         # Get database connection
         conn = self.get_conn()
-        
+
         logger.debug(f"Upserting {len(users)} users")
-        
-        # Current UNIX epoch time for all markets in this batch
+
+        # Current UNIX epoch time for all users in this batch
         current_time = int(time.time())
-        
+
         # Begin transaction
         conn.execute("BEGIN TRANSACTION;")
-        
+
         try:
             # Base table fields
             base_fields = [
-                    "id", "createdTime", "name", "username", 
-                    "url", "bio", "balance", "totalDeposits", 
-                    "totalPnLCached", "retrievedTimestamp"
-                ]
-            
+                "id", "createdTime", "name", "username",
+                "url", "bio", "streakForgiveness", "referredByUserId",
+                "lastBetTime", "referredByContractId", "currentBettingStreak", "userDeleted",
+                "marketsCreatedThisWeek", "balance", "totalDeposits",
+                "nextLoanCached", "twitterHandle", "followerCountCached",
+                "metricsLastUpdated", "hasSeenContractFollowModal",
+                "fractionResolvedCorrectly", "isBot",
+                "isAdmin", "isTrustworthy", "isBannedFromPosting"
+            ]
+
             # Insert or Replace into the base table
             prepare_and_execute_multi_upsert(
                 conn=conn,
                 query="INSERT OR REPLACE INTO users ({fields}) VALUES ({placeholders})",
                 fields=base_fields,
-                data=[
-                    {**user, 
-                     "retrievedTimestamp": current_time,
-                    } for user in users],
+                data=[{**user, "retrievedTimestamp": current_time} for user in users],
             )
-            
-            
+
+            # Delete entries for nested table 'profitCached'
+            prepare_and_execute_multi_deletion(
+                conn=conn,
+                query="DELETE FROM users_profit_cached WHERE userId = ?",
+                ids=[user["id"] for user in users]
+            )
+
+            # Handle 'profitCached' nested table
+            prepare_and_execute_multi_upsert(
+                conn=conn,
+                query="INSERT OR REPLACE INTO users_profit_cached (userId, daily, weekly, monthly, allTime) VALUES (?, ?, ?, ?, ?)",
+                fields=["userId", "daily", "weekly", "monthly", "allTime"],
+                data=[{**user["profitCached"], "userId": user["id"]} for user in users if "profitCached" in user]
+            )
+            # Delete entries for nested table 'creatorTraders'
+            prepare_and_execute_multi_deletion(
+                conn=conn,
+                query="DELETE FROM users_creator_traders WHERE userId = ?",
+                ids=[user["id"] for user in users]
+            ) 
+
+            # Handle 'creatorTraders' nested table
+            prepare_and_execute_multi_upsert(
+                conn=conn,
+                query="INSERT OR REPLACE INTO users_creator_traders (userId, daily, weekly, monthly, allTime) VALUES (?, ?, ?, ?, ?)",
+                fields=["userId", "daily", "weekly", "monthly", "allTime"],
+                data=[{**user["creatorTraders"], "userId": user["id"]} for user in users if "creatorTraders" in user]
+            )
+
             # Commit transaction
             conn.commit()
-    
+
         except sqlite3.Error as e:
-            logger.error("Database error in upset_users:", e)
-            conn.rollback()  # Rollback transaction in case of error        
+            logger.error("Database error in upsert_users:", e)
+            conn.rollback()  # Rollback transaction in case of error
 
         logger.debug("Upsert users successful")
 
@@ -400,13 +469,14 @@ class ManifoldDatabase:
         try:
             # Base table fields
             base_fields = [
-                "id", "closeTime", "createdTime", "creatorId", "creatorName", 
-                "creatorUsername", "isResolved", "lastUpdatedTime", "mechanism", 
-                "outcomeType", "question", "textDescription", 
-                "totalLiquidity", "volume", "volume24Hours", 
-                "url", "groupSlugs", "retrievedTimestamp", "lite"
+                "id", "createdTime", "name", "username",
+                "url", "bio", "streakForgiveness", "referredByUserId",
+                "lastBetTime", "referredByContractId", "currentBettingStreak", "userDeleted",
+                "marketsCreatedThisWeek", "balance", "totalDeposits", "nextLoanCached",
+                "twitterHandle", "followerCountCached", "metricsLastUpdated", "hasSeenContractFollowModal",
+                "fractionResolvedCorrectly", "isBot", "isAdmin", "isTrustworthy", "isBannedFromPosting"
             ]
-            
+
             # Insert or Replace into the base table
             prepare_and_execute_multi_upsert(
                 conn=conn,
@@ -655,7 +725,6 @@ class ManifoldDatabaseWriter:
         self.manifold_db = manifold_db
         self.write_queue = queue.Queue()
         self.shutdown_flag = threading.Event()
-        self.chunk_count = {}  # To track the number of chunks related to each future
         self.worker_thread = threading.Thread(target=self._write_thread, name="MF_DB_WRITE")
         self.worker_thread.start()
 
@@ -674,16 +743,9 @@ class ManifoldDatabaseWriter:
                 function, future, data = self.write_queue.get(timeout=1)
                 try:
                     function(data)
-                    
-                    with threading.Lock():  # Ensure thread-safety when modifying chunk_count
-                        self.chunk_count[future] -= 1
-                        if self.chunk_count[future] == 0:
-                            future.set_result(True)  # Indicate successful processing
-                            del self.chunk_count[future]
+                    future.set_result(True)
                 except Exception as e:
                     future.set_exception(e)
-                    with threading.Lock():
-                        del self.chunk_count[future]  # If an exception occurs, don't continue to count chunks
             except queue.Empty:
                 continue
 
@@ -702,18 +764,6 @@ class ManifoldDatabaseWriter:
         """
         logger.debug(f"Queueing write operation {function.__name__} with {len(data)} data items")
         
-        sublists = self._split_list(data, 10000)
         future = concurrent.futures.Future()
-
-        with threading.Lock():  # Ensure thread-safety when modifying chunk_count
-            self.chunk_count[future] = len(sublists)
-
-        for sublist in sublists:
-            self.write_queue.put((function, future, sublist))
-        
+        self.write_queue.put((function, future, data))
         return future
-
-    def _split_list(self, input_list, max_size):
-        """Splits the list into sublists of size <= max_size."""
-        return [input_list[i:i + max_size] for i in range(0, len(input_list), max_size)]
-    

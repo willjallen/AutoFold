@@ -11,12 +11,23 @@ from autofold.database import ManifoldDatabaseWriter
 from typing import Callable, List, Any, Union
 from concurrent.futures import Future
 
+from enum import Enum
 
+class JobStatus(Enum):
+    PENDING = "pending"
+    FINISHED = "finished"
+    EXECUTING = "executing"
+ 
+class JobAction(Enum):
+    ADD = "add"
+    REMOVE = "remove"
+
+    
 class Job:
 	def __init__(self, action: str, function: Callable, params: Any,
 				 job_type: str, callbacks: list[dict] = None, future: Union[None, Future] = None):
-		self.action = action  # "add" or "remove"
-		self.status = "pending" # The current status of the job (pending, executing, finished) 
+		self.action = action  # JobAction.ADD or JobAction.REMOVE
+		self.status = JobStatus.PENDING # The current status of the job (pending, executing, finished) 
 		self.function = function  # Function responsible for the task
 		self.params = params  # Parameters needed for the function
 		self.job_type = job_type  # "oneoff" or "interval"
@@ -62,11 +73,11 @@ class Job:
 			self.future = None
  
 		if self.job_type == "oneoff":
-			self.status = "finished"
+			self.status = JobStatus.FINISHED
   
 		if self.job_type == "interval":
 			self.next_execution_time = self.last_execution_time + self.update_interval # Set next execution time
-			self.status = "pending"
+			self.status = JobStatus.PENDING
 
 
 	def __repr__(self):
@@ -113,10 +124,10 @@ class ManifoldSubscriber():
 			# Process adding/removing jobs
 			while not self._jobs_queue.empty():
 				job = self._jobs_queue.get()
-				if job.action == "add":
+				if job.action == JobAction.ADD:
 					logger.debug(f"Adding job {job}")
 					self._add_job(job)
-				elif job.action == "remove":
+				elif job.action == JobAction.REMOVE:
 					logger.debug(f"Removing job {job}")
 					self._remove_job(job)
 
@@ -124,14 +135,14 @@ class ManifoldSubscriber():
 			current_time = time.time()
 			for job in self._jobs:
 				# Check if it's time for the job to be executed
-				if job.next_execution_time <= current_time and job.status == "pending":
-					job.status = "executing"
+				if job.next_execution_time <= current_time and job.status == JobStatus.PENDING:
+					job.status = JobStatus.EXECUTING
 					logger.debug(f"Executing job {job}")
 					future = self._executor.submit(job.execute)
 
 				# Check callbacks
 				for callback in job.callbacks:
-					if callback["next_call_time"] <= current_time and job.status != "executing":
+					if callback["next_call_time"] <= current_time and job.status != JobStatus.EXECUTING:
 						logger.debug(f"Firing callback {callback} from job {job}")
 						# Execute the callback
 						callback["function"]()
@@ -148,6 +159,9 @@ class ManifoldSubscriber():
 			if job.function == new_job.function and job.params == new_job.params:
 				# One-off job
 				if new_job.job_type == "oneoff":
+					# Change status if applicable
+					if job.status == JobStatus.FINISHED:
+						job.status = JobStatus.PENDING
 					# Set the next execution time to now
 					job.next_execution_time = time.time()
 					# Set the future
@@ -160,8 +174,8 @@ class ManifoldSubscriber():
 					# Job becomes an interval type
 					job.job_type = "interval"
 					# Change status if applicable
-					if job.status == "finished":
-						job.status = "pending"
+					if job.status == JobStatus.FINISHED:
+						job.status = JobStatus.PENDING
 					# Is there a callback?
 					if len(new_job.callbacks) != 0:
 						# Yes, add the new callback
@@ -203,7 +217,7 @@ class ManifoldSubscriber():
 		'''
 		logger.debug(f"Subscribing to profile of user {userId} with polling time {polling_time} seconds")
   
-		job = Job(action="add", 
+		job = Job(action=JobAction.ADD, 
 				function=self._update_user,
 			   	params=(userId,),
 				job_type="interval",
@@ -229,7 +243,7 @@ class ManifoldSubscriber():
 	 
 		logger.debug(f"Unsubscribing to profile of user {userId}")
 	 
-		job = Job(action="remove", 
+		job = Job(action=JobAction.REMOVE, 
 				function=self._update_user,
 			   	params=(userId,))
 
@@ -250,7 +264,7 @@ class ManifoldSubscriber():
 	 
 		future = Future()	
 
-		job = Job(action="add", 
+		job = Job(action=JobAction.ADD, 
 				function=self._update_user,
 			   	params=(userId,),
        			job_type="oneoff",
@@ -293,7 +307,7 @@ class ManifoldSubscriber():
 		'''
 		logger.debug(f"Subscribing to bets with userId={userId}, username={username}, contractId={contractId}, contractSlug={contractSlug}, and polling_time={polling_time} seconds with callback {callback.__name__ if callback else None}.")
   
-		job = Job(action="add", 
+		job = Job(action=JobAction.ADD, 
 		  function=self._update_bets,
 		  params=(userId, username, contractId, contractSlug),
 		  job_type="interval",
@@ -327,7 +341,7 @@ class ManifoldSubscriber():
 		:return:
 			None
 		''' 
-		job = Job(action="remove",
+		job = Job(action=JobAction.REMOVE,
 		  function=self._update_bets,
 		  params=(userId, username, contractId, contractSlug))
 
@@ -360,7 +374,7 @@ class ManifoldSubscriber():
 
 		future = Future()	
   
-		job = Job(action="add",
+		job = Job(action=JobAction.ADD,
 		  function=self._update_bets,
 		  params=(userId, username, contractId, contractSlug),
 		  job_type="oneoff",
@@ -396,7 +410,7 @@ class ManifoldSubscriber():
 			None
 		'''
   
-		job = Job(action="add",
+		job = Job(action=JobAction.ADD,
 		  function=self._update_market_positions,
 		  params=(marketId, userId),
 		  job_type="interval",
@@ -421,7 +435,7 @@ class ManifoldSubscriber():
 		:return:
 			None
 		''' 
-		job = Job(action="remove",
+		job = Job(action=JobAction.REMOVE,
 		  function=self._update_market_positions,
 		  params=(marketId, userId))
 
@@ -446,7 +460,7 @@ class ManifoldSubscriber():
 		'''
 		future = Future()	
   
-		job = Job(action="add",
+		job = Job(action=JobAction.ADD,
 		  function=self._update_market_positions,
 		  params=(marketId, userId),
 		  job_type="oneoff",
@@ -476,7 +490,7 @@ class ManifoldSubscriber():
 	
 		logger.debug(f"Subscribing to profiles of all users with polling time {polling_time} seconds and callback {callback.__name__ if callback else None}")
 
-		job = Job(action="add",
+		job = Job(action=JobAction.ADD,
 		  function=self._update_all_users,
 		  params=(),
 		  job_type="interval",
@@ -496,7 +510,7 @@ class ManifoldSubscriber():
 		:returns: 
 			None
 		''' 
-		job = Job(action="remove",
+		job = Job(action=JobAction.REMOVE,
 		  function=self._update_all_users,
 		  params=()) 
 
@@ -516,7 +530,7 @@ class ManifoldSubscriber():
 		'''
 		future = Future()	
   
-		job = Job(action="add",
+		job = Job(action=JobAction.ADD,
 		  function=self._update_all_users,
 		  params=(),
 		  job_type="oneoff",
@@ -549,7 +563,7 @@ class ManifoldSubscriber():
   
 		logger.debug(f"Subscribing to all markets with polling time {polling_time} seconds and callback {callback.__name__ if callback else None}")
  
-		job = Job(action="add",
+		job = Job(action=JobAction.ADD,
 			function=self._update_all_markets,
 			params=(),
 			job_type="interval",
@@ -569,7 +583,7 @@ class ManifoldSubscriber():
 		:returns: 
 			None
 		''' 
-		job = Job(action="remove",
+		job = Job(action=JobAction.REMOVE,
 		  function=self._update_all_markets,
 		  params=()) 
 
@@ -589,7 +603,7 @@ class ManifoldSubscriber():
 		'''  
 		future = Future()	
   
-		job = Job(action="add",
+		job = Job(action=JobAction.ADD,
 			function=self._update_all_markets,
 			params=(),
 			job_type="oneoff",
@@ -632,4 +646,4 @@ class ManifoldSubscriber():
 	# 		self.callbacks[job_id].remove(callback)
 	# 		# If no more callbacks for this job ID, delete the job ID entry
 	# 		if not self.callbacks[job_id]:
-	# 			del self.callbacks[job_id]P 
+	# 			del self.callbacks[job_id]P

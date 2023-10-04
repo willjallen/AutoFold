@@ -1,25 +1,25 @@
-- Read dumps
-- Redo subscriber
-    - Coagulate multiple subscriptions into one and modify polling times
-    - threadsafe job registry
+High priority:
 - Testing
+    - Error handling, edge cases, all the good stuff
+- Support more than BC and MC markets 
 
+
+Medium priority:
+- should make sure two simultaneous updates from api to db from different sources only writes most current info (check for API-side timestamps if present)
 - Utilities
     - cpmm calculator:
     https://github.com/JRPdata/wastebook/blob/main/calculate_bet.ipynb
     - other stuff like total traders in a market
+- Backplay
+    - simulate automation on old data for testing
+    - also an option to simulate on new realtime data, fake placing bets
+- Better logging all around.
+- Every thread should use signals instead of class attributes (self.running) for shutdown
+- Add check in automationbot to only shut down once
 
-- Socket
-
-Subscriber
-- Better docstrings
-- Better logging
-
-
-other market types
-
-should make sure two simultaneous updates from api to db from different sources only writes most current info
-(check for API-side timestamps if present)
+Low priority:
+- Read dumps (is this even necessary?)
+- Supabase Socket (probably won't do this since it will be removed)
 
 Done:
 - rename to autofold
@@ -29,3 +29,15 @@ Done:
 - Rename strategies to automations
 - should be able to add automations whenever
 - Specify db filepath
+- Redo subscriber
+    - Coagulate multiple subscriptions into one and modify polling times
+    - threadsafe job registry
+    - Better docstrings
+    - update user info becomes update user
+
+High priority:
+
+Medium priority:
+
+Low priority:
+

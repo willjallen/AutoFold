@@ -107,7 +107,8 @@ class ManifoldDatabase:
             isBot BOOLEAN,
             isAdmin BOOLEAN,
             isTrustworthy BOOLEAN,
-            isBannedFromPosting BOOLEAN
+            isBannedFromPosting BOOLEAN,
+            retrievedTimestamp  INTEGER
         );
         """)
         
@@ -349,7 +350,7 @@ class ManifoldDatabase:
                 "nextLoanCached", "twitterHandle", "followerCountCached",
                 "metricsLastUpdated", "hasSeenContractFollowModal",
                 "fractionResolvedCorrectly", "isBot",
-                "isAdmin", "isTrustworthy", "isBannedFromPosting"
+                "isAdmin", "isTrustworthy", "isBannedFromPosting", "retrievedTimestamp"
             ]
 
             # Insert or Replace into the base table

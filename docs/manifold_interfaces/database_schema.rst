@@ -6,30 +6,107 @@
 1. Users
 --------
 
-+--------------------+---------+-------------------------------------+
-| Column             | Type    | Description                         |
-+====================+=========+=====================================+
-| id                 | TEXT    | User's unique id                    |
-+--------------------+---------+-------------------------------------+
-| createdTime        | INTEGER | Timestamp when the user was created |
-|                    |         | (milliseconds since epoch)          |
-+--------------------+---------+-------------------------------------+
-| name               | TEXT    | Display name, may contain spaces    |
-+--------------------+---------+-------------------------------------+
-| username           | TEXT    | Username, used in URLs              |
-+--------------------+---------+-------------------------------------+
-| url                | TEXT    | Link to the user's profile          |
-+--------------------+---------+-------------------------------------+
-| bio                | TEXT    | Optional user's biography           |
-+--------------------+---------+-------------------------------------+
-| balance            | REAL    | User's balance                      |
-+--------------------+---------+-------------------------------------+
-| totalDeposits      | REAL    | Total deposits made by the user     |
-+--------------------+---------+-------------------------------------+
-| totalPnLCached     | REAL    | Cached Profit/Loss of the user      |
-+--------------------+---------+-------------------------------------+
-| retrievedTimestamp | INTEGER | Timestamp when data was retrieved   |
-+--------------------+---------+-------------------------------------+
++-----------------------------+---------+---------------------------------------------------+
+| Column                      | Type    | Description                                       |
++=============================+=========+===================================================+
+| id                          | TEXT    | User's unique id                                  |
++-----------------------------+---------+---------------------------------------------------+
+| createdTime                 | INTEGER | Timestamp when the user was created               |
+|                             |         | (milliseconds since epoch)                        |
++-----------------------------+---------+---------------------------------------------------+
+| name                        | TEXT    | Display name, may contain spaces                  |
++-----------------------------+---------+---------------------------------------------------+
+| username                    | TEXT    | Username, used in URLs                            |
++-----------------------------+---------+---------------------------------------------------+
+| url                         | TEXT    | Link to the user's profile                        |
++-----------------------------+---------+---------------------------------------------------+
+| bio                         | TEXT    | Optional user's biography                         |
++-----------------------------+---------+---------------------------------------------------+
+| streakForgiveness           | INTEGER | Number of days user can break streak              |
+|                             |         | without losing it                                 |
++-----------------------------+---------+---------------------------------------------------+
+| referredByUserId            | TEXT    | ID of the user who referred this user             |
++-----------------------------+---------+---------------------------------------------------+
+| lastBetTime                 | INTEGER | Last time user made a bet                         |
+|                             |         | (milliseconds since epoch)                        |
++-----------------------------+---------+---------------------------------------------------+
+| referredByContractId        | TEXT    | ID of the contract that referred this user        |
++-----------------------------+---------+---------------------------------------------------+
+| currentBettingStreak        | INTEGER | Current number of consecutive successful bets     |
++-----------------------------+---------+---------------------------------------------------+
+| userDeleted                 | BOOLEAN | Whether the user account is deleted               |
++-----------------------------+---------+---------------------------------------------------+
+| marketsCreatedThisWeek      | INTEGER | Number of markets user created this week          |
++-----------------------------+---------+---------------------------------------------------+
+| balance                     | REAL    | User's balance                                    |
++-----------------------------+---------+---------------------------------------------------+
+| totalDeposits               | REAL    | Total deposits made by the user                   |
++-----------------------------+---------+---------------------------------------------------+
+| nextLoanCached              | REAL    | Amount of next loan, cached                       |
++-----------------------------+---------+---------------------------------------------------+
+| twitterHandle               | TEXT    | User's Twitter handle                             |
++-----------------------------+---------+---------------------------------------------------+
+| followerCountCached         | INTEGER | Cached count of followers                         |
++-----------------------------+---------+---------------------------------------------------+
+| metricsLastUpdated          | INTEGER | Last time metrics were updated                    |
+|                             |         | (milliseconds since epoch)                        |
++-----------------------------+---------+---------------------------------------------------+
+| hasSeenContractFollowModal  | BOOLEAN | Whether user has seen the contract follow modal   |
++-----------------------------+---------+---------------------------------------------------+
+| fractionResolvedCorrectly   | REAL    | Fraction of bets resolved correctly               |
++-----------------------------+---------+---------------------------------------------------+
+| isBot                       | BOOLEAN | Whether the account is a bot                      |
++-----------------------------+---------+---------------------------------------------------+
+| isAdmin                     | BOOLEAN | Whether the user is an admin                      |
++-----------------------------+---------+---------------------------------------------------+
+| isTrustworthy               | BOOLEAN | Whether the user is considered trustworthy        |
++-----------------------------+---------+---------------------------------------------------+
+| isBannedFromPosting         | BOOLEAN | Whether the user is banned from posting           |
++-----------------------------+---------+---------------------------------------------------+
+| retrievedTimestamp          | INTEGER | Timestamp when data was retrieved                 |
+|                             |         | (milliseconds since epoch)                        |
++-----------------------------+---------+---------------------------------------------------+
+
+
+
+.. _2-users-profit-cached:
+
+2. Users Profit Cached
+-----------------------
+
++-------------+-------+-------------------------------------+
+| Column      | Type  | Description                         |
++=============+=======+=====================================+
+| userId      | TEXT  | Foreign key to Users table          |
++-------------+-------+-------------------------------------+
+| daily       | REAL  | Daily profit                        |
++-------------+-------+-------------------------------------+
+| weekly      | REAL  | Weekly profit                       |
++-------------+-------+-------------------------------------+
+| monthly     | REAL  | Monthly profit                      |
++-------------+-------+-------------------------------------+
+| allTime     | REAL  | All-time profit                     |
++-------------+-------+-------------------------------------+
+
+.. _3-users-creator-traders:
+
+3. Users Creator Traders
+------------------------
+
++-------------+---------+-------------------------------------------------------+
+| Column      | Type    | Description                                           |
++=============+=========+=======================================================+
+| userId      | TEXT    | Foreign key to Users table                            |
++-------------+---------+-------------------------------------------------------+
+| daily       | INTEGER | Number of trades on user-created markets daily        |
++-------------+---------+-------------------------------------------------------+
+| weekly      | INTEGER | Number of trades on user-created markets weekly       |
++-------------+---------+-------------------------------------------------------+
+| monthly     | INTEGER | Number of trades on user-created markets monthly      |
++-------------+---------+-------------------------------------------------------+
+| allTime     | INTEGER | Number of trades on user-created markets all time     |
++-------------+---------+-------------------------------------------------------+
+
 
 .. _2-binary-choice-markets:
 

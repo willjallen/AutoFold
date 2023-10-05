@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from loguru import logger
+import traceback
 import sys
 import signal
 import threading
@@ -150,7 +151,7 @@ class AutomationBot:
 		try:
 			automation['object'].start()
 		except Exception as e:
-			logger.error(f"Caught exception in automation: {automation['name']} {e}")
+			logger.error(f"Caught exception in automation: {automation['name']} \n {traceback.format_exc()}")
 			self.stop()
 		
 		# When the automation finishes

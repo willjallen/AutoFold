@@ -115,6 +115,7 @@ class ManifoldDatabase:
         # Create 'nested' profit cached table
         conn.execute("""
         CREATE TABLE IF NOT EXISTS users_profit_cached (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             userId TEXT,
             daily REAL,
             weekly REAL,
@@ -127,6 +128,7 @@ class ManifoldDatabase:
         # Create 'nested' creator traders table
         conn.execute("""
         CREATE TABLE IF NOT EXISTS users_creator_traders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             userId TEXT,
             daily INTEGER,
             weekly INTEGER,

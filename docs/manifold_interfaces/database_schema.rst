@@ -108,6 +108,22 @@
 +-------------+---------+-------------------------------------------------------+
 
 
+.. _note-on-markets:
+
+.. note::
+
+    When retrieving markets from ``GET /v0/markets`` endpoint via: 
+        - ``ManifoldSubscriber.update_all_markets()``
+        - ``ManifoldSubscriber.subscribe_to_all_markets()``
+        - ``ManifoldAPI.get_markets()`` 
+
+    the market(s) will be returned as a ``LiteMarket`` which does not include the fields: ``answers``, ``description``, ``textDescription`` and ``groupSlugs``.
+
+    To get a ``FullMarket``, you must retrieve the **individual** market from ``GET /v0/market/[marketId]`` which includes these fields, you can retrieve this via:
+        - ``ManifoldSubscriber.update_market()``
+        - ``ManifoldSubscriber.subscribe_to_market()``
+        - ``ManifoldAPI.get_market_by_id()``
+
 .. _4-binary-choice-markets:
 
 4. Binary Choice Markets

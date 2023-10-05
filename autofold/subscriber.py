@@ -201,25 +201,25 @@ class ManifoldSubscriber():
 		# Remove the job by comparing function and parameters
 		self._jobs = [job for job in self._jobs if not (job.function == job_to_remove.function and job.params == job_to_remove.params)]
 
-	def subscribe_to_user(self, userId, polling_time=60, callback=None):
+	def subscribe_to_user(self, user_id, polling_time, callback):
 		'''
 		Continuously retrieves the profile of a specified user and updates the database.
 
-		:param str userId:
+		:param str user_id:
 			Required. The ID of the user to subscribe to.
 		:param int polling_time:
-			Optional. The number of seconds between each profile update. Default is 60 seconds.
+			Required. The number of seconds between each profile update. 
 		:param function callback:
-			Optional. A function to be called when the job finishes. The function should accept no arguments.
+			Required. A function to be called when the job finishes. The function should accept no arguments.
 		
 		:return:
 			None
 		'''
-		logger.debug(f"Subscribing to profile of user {userId} with polling time {polling_time} seconds")
+		logger.debug(f"Subscribing to profile of user {user_id} with polling time {polling_time} seconds")
   
 		job = Job(action=JobAction.ADD, 
 				function=self._update_user,
-			   	params=(userId,),
+			   	params=(user_id,),
 				job_type="interval",
 				callbacks=[                           
 				{
@@ -230,259 +230,62 @@ class ManifoldSubscriber():
   
 		self._jobs_queue.put(job)
 
-	def unsubscribe_to_user(self, userId):
+	def unsubscribe_to_user(self, user_id):
 		'''
 		Stops the continuous retrieval of the profile of a specified user and removes all associated callbacks.
 
-		:param str userId:
+		:param str user_id:
 			Required. The ID of the user to unsubscribe from.
 
 		:return:
 			None
 		'''
 	 
-		logger.debug(f"Unsubscribing to profile of user {userId}")
+		logger.debug(f"Unsubscribing to profile of user {user_id}")
 	 
 		job = Job(action=JobAction.REMOVE, 
 				function=self._update_user,
-			   	params=(userId,))
+			   	params=(user_id,))
 
 		self._jobs_queue.put(job)
 
-	def update_user(self, userId):
+	def update_user(self, user_id):
 		'''
-		Retrieves the profile of a specified user by their userId and updates the database with the fetched data.
+		Retrieves the profile of a specified user by their user_id and updates the database with the fetched data.
 
-		:param str userId:
+		:param str user_id:
 			Required. The ID of the user whose profile needs to be updated.
 
 		:return:
 			A Future object representing the eventual result of the API call and database update.
 		:rtype: Future
 		'''
-		logger.debug(f"Updating profile of user {userId}")
+		logger.debug(f"Updating profile of user {user_id}")
 	 
 		future = Future()	
 
 		job = Job(action=JobAction.ADD, 
 				function=self._update_user,
-			   	params=(userId,),
+			   	params=(user_id,),
        			job_type="oneoff",
           		future=future)
 
 		self._jobs_queue.put(job)
 		return future
  
-	def _update_user(self, userId):
-		logger.debug(f"Updating profile for user {userId}")
-		user = self._manifold_api.get_user_by_id(userId=userId).result()
+	def _update_user(self, user_id):
+		logger.debug(f"Updating profile for user {user_id}")
+		user = self._manifold_api.get_user_by_id(user_id=user_id).result()
 		self._manifold_db_writer.queue_write_operation(function=self._manifold_db.upsert_users, data=[user]).result()
-	
-	def subscribe_to_bets(self, userId=None, username=None, contractId=None, contractSlug=None, polling_time=60, callback=None):
-		'''
-		Continuously retrieves bets based on a single value or a combination of the following:
 
-		- userId
-		- username
-		- contractId
-		- contractSlug
-		
-		Updates the manifold database accordingly.
-
-		:param str userId:
-			Optional. The ID of the user whose bets are to be retrieved.
-		:param str username:
-			Optional. The username of the user whose bets are to be retrieved.
-		:param str contractId:
-			Optional. The ID of the contract (market) whose bets are to be retrieved.
-		:param str contractSlug:
-			Optional. The URL slug of the contract (market) whose bets are to be retrieved.
-		:param int polling_time:
-			Optional. The number of seconds between each bet update. Default is 60 seconds.
-		:param function callback:
-			Optional. A function to be called when the job finishes. The function should accept no arguments.
-		
-		:return:
-			None
-		'''
-		logger.debug(f"Subscribing to bets with userId={userId}, username={username}, contractId={contractId}, contractSlug={contractSlug}, and polling_time={polling_time} seconds with callback {callback.__name__ if callback else None}.")
-  
-		job = Job(action=JobAction.ADD, 
-		  function=self._update_bets,
-		  params=(userId, username, contractId, contractSlug),
-		  job_type="interval",
-		  callbacks=[
-			  {
-				  "function": callback,
-				  "polling_time": polling_time,
-			  }
-		  ])
-
-		self._jobs_queue.put(job)
-
-	def unsubscribe_to_bets(self, userId=None, username=None, contractId=None, contractSlug=None):
-		'''
-		Stops the continuous retrieval of bets based on a single value or a combination of the following:
-
-		- userId
-		- username
-		- contractId
-		- contractSlug
-		
-		:param str userId:
-			Optional. The ID of the user to unsubscribe from.
-		:param str username:
-			Optional. The username of the user to unsubscribe from.
-		:param str contractId:
-			Optional. The ID of the contract (market) to unsubscribe from.
-		:param str contractSlug:
-			Optional. The URL slug of the contract (market) to unsubscribe from.
-		
-		:return:
-			None
-		''' 
-		job = Job(action=JobAction.REMOVE,
-		  function=self._update_bets,
-		  params=(userId, username, contractId, contractSlug))
-
-		self._jobs_queue.put(job)
-
-	def update_bets(self, userId=None, username=None, contractId=None, contractSlug=None):
-		'''
-		Retrieves bets based on a single value or a combination of the following:
-
-		- userId
-		- username
-		- contractId
-		- contractSlug
-		
-		Updates the manifold database with the retrieved data.
-
-		:param str userId:
-			Optional. The ID of the user whose bets are to be retrieved.
-		:param str username:
-			Optional. The username of the user whose bets are to be retrieved.
-		:param str contractId:
-			Optional. The ID of the contract (market) whose bets are to be retrieved.
-		:param str contractSlug:
-			Optional. The URL slug of the contract (market) whose bets are to be retrieved.
-		
-		:return:
-			A Future object representing the eventual result of the API call and database update.
-		:rtype: Future
-		'''
-
-		future = Future()	
-  
-		job = Job(action=JobAction.ADD,
-		  function=self._update_bets,
-		  params=(userId, username, contractId, contractSlug),
-		  job_type="oneoff",
-		  future=future)
-
-   
-		self._jobs_queue.put(job)
-		return future
-		
-	def _update_bets(self, userId=None, username=None, contractId=None, contractSlug=None):
-		logger.debug(f"Updating bets with userId={userId}, username={username}, contractId={contractId} and contractSlug={contractSlug}")
-  
-		bets = self._manifold_api.retrieve_all_data(api_call_func=self._manifold_api.get_bets, max_limit=1000, userId=userId, username=username, contractId=contractId,  contractSlug=contractSlug)
-		self._manifold_db_writer.queue_write_operation(function=self._manifold_db.upsert_bets, data=bets).result()
-
-	def subscribe_to_market_positions(self, marketId, userId=None, polling_time=60, callback=None):
-		'''
-		.. note:: 
-			Due to https://github.com/manifoldmarkets/manifold/issues/2031, this function will only subscribe to the top 4000 positions by order.
-		
-		Continuously retrieves the positions of a market by its marketId and updates the manifold database. Optionally tracks positions of a specific user.
-
-		:param str marketId:
-			Required. The ID of the market to track.
-		:param str userId:
-			Optional. If specified, tracks the positions of this specific user in the market.
-		:param int polling_time:
-			The number of seconds between updates. Default is 60 seconds.
-		:param function callback:
-			Optional. The function to be called when the job finishes.
-
-		:return:
-			None
-		'''
-  
-		job = Job(action=JobAction.ADD,
-		  function=self._update_market_positions,
-		  params=(marketId, userId),
-		  job_type="interval",
-		  callbacks=[
-			  {
-				  "function": callback,
-				  "polling_time": polling_time,
-			  }
-		  ])
-  
-		self._jobs_queue.put(job)
-
-	def unsubscribe_to_market_positions(self, marketId, userId=None):
-		'''
-		Stops the subscription to the positions of a market by its marketId. Optionally stops tracking positions of a specific user.
-
-		:param str marketId:
-			Required. The ID of the market to stop tracking.
-		:param str userId:
-			Optional. If specified, stops tracking the positions of this specific user in the market.
-
-		:return:
-			None
-		''' 
-		job = Job(action=JobAction.REMOVE,
-		  function=self._update_market_positions,
-		  params=(marketId, userId))
-
-		self._jobs_queue.put(job)
-  
-	def update_market_positions(self, marketId, userId=None):
-		'''
-		.. note:: 
-			Due to https://github.com/manifoldmarkets/manifold/issues/2031 this function will only retrieve the top 4000 positions by order.
-		
-		Retrieves the positions of a market by its marketId and updates the manifold database with the fetched data. Optionally retrieves positions for a specific user.
-
-		:param str marketId:
-			Required. The ID of the market whose positions are to be fetched.
-		:param str userId:
-			Optional. If specified, fetches positions only for this user in the specified market.
-
-		:returns: 
-			A Future object representing the eventual result of the API call and database update.
-		:rtype:
-			Future
-		'''
-		future = Future()	
-  
-		job = Job(action=JobAction.ADD,
-		  function=self._update_market_positions,
-		  params=(marketId, userId),
-		  job_type="oneoff",
-		  future=future)
-		self._jobs_queue.put(job)
-		return future
-
-	def _update_market_positions(self, marketId, userId=None):
-  
-		logger.debug(f"Updating market positios for marketId={marketId} and userId={userId}")
-  
-		contract_metrics = self._manifold_api.get_market_positions(marketId=marketId, order='profit', top=2000, userId=userId).result()
-		self._manifold_db_writer.queue_write_operation(function=self._manifold_db.upsert_contract_metrics, data=contract_metrics).result()
-
-	def subscribe_to_all_users(self, polling_time=3600, callback=None):
+	def subscribe_to_all_users(self, polling_time, callback):
 		'''
 		Continuously retrieves the (LiteUser) profile of all users and updates the manifold database with it.
 
 		:param int polling_time:
-			Required. The number of seconds between updates. Default is 3600 seconds.
+			Required. The number of seconds between updates.
 		:param function callback:
-			Optional. A callback function to be executed when the job finishes.
+			Required. A function to be called when the job finishes. The function should accept no arguments.
 
 		:returns: 
 			None
@@ -544,8 +347,295 @@ class ManifoldSubscriber():
   
 		users = self._manifold_api.retrieve_all_data(self._manifold_api.get_users, max_limit=1000)
 		self._manifold_db_writer.queue_write_operation(function=self._manifold_db.upsert_users, data=users).result()
+	
+	def subscribe_to_bets(self, user_id, username, contract_id, contract_slug, polling_time, callback):
+		'''
+		Continuously retrieves bets based on a single value or a combination of the following:
 
-	def subscribe_to_all_markets(self, polling_time=3600, callback=None):
+		- user_id
+		- username
+		- contract_id
+		- contract_slug
+  
+		Set unused values to None.
+		
+		Updates the manifold database accordingly.
+
+		:param str user_id:
+			Optional. The ID of the user whose bets are to be retrieved.
+		:param str username:
+			Optional. The username of the user whose bets are to be retrieved.
+		:param str contract_id:
+			Optional. The ID of the contract (market) whose bets are to be retrieved.
+		:param str contract_slug:
+			Optional. The URL slug of the contract (market) whose bets are to be retrieved.
+		:param int polling_time:
+			Required. The number of seconds between each bet update.
+		:param function callback:
+			Required. A function to be called when the job finishes. The function should accept no arguments.
+		
+		:return:
+			None
+		'''
+		logger.debug(f"Subscribing to bets with user_id={user_id}, username={username}, contract_id={contract_id}, contract_slug={contract_slug}, and polling_time={polling_time} seconds with callback {callback.__name__ if callback else None}.")
+  
+		job = Job(action=JobAction.ADD, 
+		  function=self._update_bets,
+		  params=(user_id, username, contract_id, contract_slug),
+		  job_type="interval",
+		  callbacks=[
+			  {
+				  "function": callback,
+				  "polling_time": polling_time,
+			  }
+		  ])
+
+		self._jobs_queue.put(job)
+
+	def unsubscribe_to_bets(self, user_id, username=None, contract_id=None, contract_slug=None):
+		'''
+		Stops the continuous retrieval of bets based on a single value or a combination of the following:
+
+		- user_id
+		- username
+		- contract_id
+		- contract_slug
+
+		Set unused values to None.
+		
+		:param str user_id:
+			Optional. The ID of the user to unsubscribe from.
+		:param str username:
+			Optional. The username of the user to unsubscribe from.
+		:param str contract_id:
+			Optional. The ID of the contract (market) to unsubscribe from.
+		:param str contract_slug:
+			Optional. The URL slug of the contract (market) to unsubscribe from.
+		
+		:return:
+			None
+		''' 
+		job = Job(action=JobAction.REMOVE,
+		  function=self._update_bets,
+		  params=(user_id, username, contract_id, contract_slug))
+
+		self._jobs_queue.put(job)
+
+	def update_bets(self, user_id, username=None, contract_id=None, contract_slug=None):
+		'''
+		Retrieves bets based on a single value or a combination of the following:
+
+		- user_id
+		- username
+		- contract_id
+		- contract_slug
+		
+		Updates the manifold database with the retrieved data.
+
+		:param str user_id:
+			Optional. The ID of the user whose bets are to be retrieved.
+		:param str username:
+			Optional. The username of the user whose bets are to be retrieved.
+		:param str contract_id:
+			Optional. The ID of the contract (market) whose bets are to be retrieved.
+		:param str contract_slug:
+			Optional. The URL slug of the contract (market) whose bets are to be retrieved.
+		
+		:return:
+			A Future object representing the eventual result of the API call and database update.
+		:rtype: Future
+		'''
+
+		future = Future()	
+  
+		job = Job(action=JobAction.ADD,
+		  function=self._update_bets,
+		  params=(user_id, username, contract_id, contract_slug),
+		  job_type="oneoff",
+		  future=future)
+
+   
+		self._jobs_queue.put(job)
+		return future
+		
+	def _update_bets(self, user_id, username=None, contract_id=None, contract_slug=None):
+		logger.debug(f"Updating bets with user_id={user_id}, username={username}, contract_id={contract_id} and contract_slug={contract_slug}")
+  
+		bets = self._manifold_api.retrieve_all_data(api_call_func=self._manifold_api.get_bets, max_limit=1000, user_id=user_id, username=username, contract_id=contract_id,  contract_slug=contract_slug)
+		self._manifold_db_writer.queue_write_operation(function=self._manifold_db.upsert_bets, data=bets).result()
+
+	def subscribe_to_market_positions(self, market_id, user_id, polling_time=60, callback=None):
+		'''
+		.. note:: 
+			Due to https://github.com/manifoldmarkets/manifold/issues/2031, this function will only subscribe to the top 4000 positions by order.
+		
+		Continuously retrieves the positions of a market by its market_id and updates the manifold database. Optionally tracks positions of a specific user.
+
+		:param str market_id:
+			Required. The ID of the market to track.
+		:param str user_id:
+			Optional. If specified, tracks the positions of this specific user in the market.
+		:param int polling_time:
+			Required. The number of seconds between updates.
+		:param function callback:
+			Required. A function to be called when the job finishes. The function should accept no arguments.
+
+		:return:
+			None
+		'''
+  
+		job = Job(action=JobAction.ADD,
+		  function=self._update_market_positions,
+		  params=(market_id, user_id),
+		  job_type="interval",
+		  callbacks=[
+			  {
+				  "function": callback,
+				  "polling_time": polling_time,
+			  }
+		  ])
+  
+		self._jobs_queue.put(job)
+
+	def unsubscribe_to_market_positions(self, market_id, user_id):
+		'''
+		Stops the subscription to the positions of a market by its market_id. Optionally stops tracking positions of a specific user.
+
+		:param str market_id:
+			Required. The ID of the market to stop tracking.
+		:param str user_id:
+			Optional. If specified, stops tracking the positions of this specific user in the market.
+
+		:return:
+			None
+		''' 
+		job = Job(action=JobAction.REMOVE,
+		  function=self._update_market_positions,
+		  params=(market_id, user_id))
+
+		self._jobs_queue.put(job)
+  
+	def update_market_positions(self, market_id, user_id):
+		'''
+		.. note:: 
+			Due to https://github.com/manifoldmarkets/manifold/issues/2031 this function will only retrieve the top 4000 positions by order.
+		
+		Retrieves the positions of a market by its market_id and updates the manifold database with the fetched data. Optionally retrieves positions for a specific user.
+
+		:param str market_id:
+			Required. The ID of the market whose positions are to be fetched.
+		:param str user_id:
+			Optional. If specified, fetches positions only for this user in the specified market.
+
+		:returns: 
+			A Future object representing the eventual result of the API call and database update.
+		:rtype:
+			Future
+		'''
+		future = Future()	
+  
+		job = Job(action=JobAction.ADD,
+		  function=self._update_market_positions,
+		  params=(market_id, user_id),
+		  job_type="oneoff",
+		  future=future)
+		self._jobs_queue.put(job)
+		return future
+
+	def _update_market_positions(self, market_id, user_id):
+  
+		logger.debug(f"Updating market positions for market_id={market_id} and user_id={user_id}")
+  
+		contract_metrics = self._manifold_api.get_market_positions(market_id=market_id, order='profit', top=2000, user_id=user_id).result()
+		self._manifold_db_writer.queue_write_operation(function=self._manifold_db.upsert_contract_metrics, data=contract_metrics).result()
+
+
+	def subscribe_to_market(self, market_id, polling_time, callback):
+		'''
+		Continuously retrieves the (FullMarket) market for a specified market_id and updates the manifold database with the fetched data.
+
+		.. note:: 
+			Only BC and MC markets right now.
+
+		:param str market_id:
+			Required. The ID of the market whose positions are to be fetched.
+		:param int polling_time:
+			Required. The number of seconds between updates. 
+		:param callback:
+			Required. A function to be called when the job finishes. The function should accept no arguments.
+
+		:returns: 
+			None
+		'''
+		job = Job(action=JobAction.ADD,
+		  function=self._update_market,
+		  params=(market_id),
+		  job_type="interval",
+		  callbacks=[
+			  {
+				  "function": callback,
+				  "polling_time": polling_time,
+			  }
+		  ])
+  
+		self._jobs_queue.put(job)
+
+	def unsubscribe_to_market(self, market_id):
+		'''
+		Stops the subscription to a market by its market_id.
+
+		:param str market_id:
+			Required. The ID of the market to stop tracking.
+
+		:return:
+			None
+		''' 
+		job = Job(action=JobAction.REMOVE,
+		  function=self._update_market,
+		  params=(market_id))
+
+		self._jobs_queue.put(job)
+
+	def update_market(self, market_id):
+		'''
+		Retrieves the (FullMarket) market for a specified market_id and updates the manifold database with the fetched data.
+
+		.. note:: 
+			Only BC and MC markets right now.
+
+		:param str market_id:
+			Required. The ID of the market to be fetched.
+
+		:returns: 
+			A Future object representing the eventual result of the API call and database update.
+		:rtype:
+			Future
+		'''
+
+		future = Future()	
+  
+		job = Job(action=JobAction.ADD,
+		  function=self._update_market,
+		  params=(market_id),
+		  job_type="oneoff",
+		  future=future)
+		self._jobs_queue.put(job)
+		return future
+	
+ 
+	def _update_market(self, market_id):
+		logger.debug(f"Updating market for market_id={market_id}")
+  
+		market = self._manifold_api.get_market_by_id(market_id=market_id).result()
+		if market["outcomeType"] == "BINARY":
+			self._manifold_db_writer.queue_write_operation(function=self._manifold_db.upsert_binary_choice_markets, data=[market]).result()
+		elif market["outcomeType"] == "MULTIPLE_CHOICE":
+			self._manifold_db_writer.queue_write_operation(function=self._manifold_db.upsert_multiple_choice_markets, data=[market]).result()
+		else:
+			logger.error(f"Error, only binary and multiple choice markets are currently supported. Market is of type {market['outcomeType']}")
+     
+
+	def subscribe_to_all_markets(self, polling_time, callback):
 		'''
 		Continuously retrieves all (LiteMarket) markets and updates the manifold database.
 
@@ -553,9 +643,9 @@ class ManifoldSubscriber():
 			Only BC and MC markets right now.
 
 		:param int polling_time:
-			Optional. The number of seconds between updates. Default is 3600 seconds.
+			Required. The number of seconds between updates. 
 		:param callback:
-			Optional. The function to be called when the job finishes. Should be a callable object.
+			Required. A function to be called when the job finishes. The function should accept no arguments.
 
 		:returns: 
 			None

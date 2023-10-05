@@ -5,6 +5,7 @@ High priority:
 
 
 Medium priority:
+- add new managram endpoints
 - should make sure two simultaneous updates from api to db from different sources only writes most current info (check for API-side timestamps if present)
 - Utilities
     - cpmm calculator:

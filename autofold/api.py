@@ -405,8 +405,9 @@ class ManifoldAPI():
 
 	def get_market_positions(self, marketId, order='profit', top=None, bottom=None, userId=None):
 		'''
-		NOTE: This API endpoint will break for markets with > 4650 positions. Setting either the top or bottom parameters is required to mitigate a 500 server error.
-		See https://github.com/manifoldmarkets/manifold/issues/2031 
+		.. note:: 
+  			This API endpoint will break for markets with > 4650 positions. Setting either the top or bottom parameters is required to mitigate a 500 server error.
+			See https://github.com/manifoldmarkets/manifold/issues/2031 
 
 		GET /v0/market/[marketId]/positions
 

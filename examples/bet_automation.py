@@ -311,5 +311,5 @@ def main():
 	automation_bot.stop()
 
 
-main() 
-  
+if __name__ == "__main__":
+    main() 

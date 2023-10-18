@@ -1,4 +1,8 @@
 High priority:
+- there's a fulluser and liteuser disctiontion, same as full/lite markets
+    - /api/v0/user/[username] -> liteUser
+    - /api/v0/users/ -> liteUser
+    - api/v0/user/by-id/[id] -> fullUser
 - Testing
     - Error handling, edge cases, all the good stuff
 - Support more than BC and MC markets 

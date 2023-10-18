@@ -410,7 +410,7 @@ class ManifoldDatabase:
     '''
 
     # Upsert Market
-    def upsert_binary_choice_markets(self, markets: list[dict], lite=True):
+    def upsert_binary_choice_markets(self, markets: list[dict]):
         # Get database connection
         conn = self.get_conn()
         
@@ -440,7 +440,7 @@ class ManifoldDatabase:
                 data=[
                     {**market, 
                     "retrievedTimestamp": current_time,
-                    "lite": int(lite),
+                    "lite": int(market.get("lite", 0)),
                     "groupSlugs": collapse_list_of_strings_to_string(market.get("groupSlugs", "")),
                     "pool_NO": market.get("pool", {}).get("NO", None),
                     "pool_YES": market.get("pool", {}).get("YES", None)
@@ -457,7 +457,7 @@ class ManifoldDatabase:
         logger.debug("Upsert binary choice markets successful")
 
 
-    def upsert_multiple_choice_markets(self, markets: list[dict], lite=True):
+    def upsert_multiple_choice_markets(self, markets: list[dict]):
         # Get database connection
         conn = self.get_conn()
         
@@ -488,12 +488,13 @@ class ManifoldDatabase:
                 data=[
                     {**market, 
                      "retrievedTimestamp": current_time,
-                     "lite": int(lite),
+                     "lite": int(market.get("lite", 0)),
                      "groupSlugs": collapse_list_of_strings_to_string(market.get("groupSlugs", ""))
                     } for market in markets],
             )
             
             # Handle nested tables (answers)
+            lite = any([market.get("lite", 0) for market in markets])
             if not lite:
                 
                 # Delete existing answers for the markets

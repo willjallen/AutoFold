@@ -17,6 +17,10 @@ class JobStatus(Enum):
     PENDING = "pending"
     FINISHED = "finished"
     EXECUTING = "executing"
+
+class JobType(Enum):
+	INTERVAL = "interval"
+	ONEOFF = "oneoff"
  
 class JobAction(Enum):
     ADD = "add"
@@ -30,7 +34,7 @@ class Job:
 		self.status = JobStatus.PENDING # The current status of the job (pending, executing, finished) 
 		self.function = function  # Function responsible for the task
 		self.params = params  # Parameters needed for the function
-		self.job_type = job_type  # "oneoff" or "interval"
+		self.job_type = job_type  # JobType.ONEOFF or JobType.INTERVAL
 		self.future = future  # Used for oneoff jobs
 		self.callbacks = callbacks if callbacks else []  # List of callbacks
 		self.last_execution_time = 0  # Timestamp of the last update
@@ -63,8 +67,6 @@ class Job:
 		"""
 		Executes the job's function with its parameters.
 		"""
-		# print("here????")
-		# print(self.function, *self.params, self.params)
 		self.function(*self.params)
 		self.last_execution_time = time.time()  # Record the last execution time
  
@@ -72,10 +74,10 @@ class Job:
 			self.future.set_result(True)
 			self.future = None
  
-		if self.job_type == "oneoff":
+		if self.job_type == JobType.ONEOFF:
 			self.status = JobStatus.FINISHED
   
-		if self.job_type == "interval":
+		if self.job_type == JobType.INTERVAL:
 			self.next_execution_time = self.last_execution_time + self.update_interval # Set next execution time
 			self.status = JobStatus.PENDING
 
@@ -158,7 +160,7 @@ class ManifoldSubscriber():
 		for job in self._jobs:
 			if job.function == new_job.function and job.params == new_job.params:
 				# One-off job
-				if new_job.job_type == "oneoff":
+				if new_job.job_type == JobType.ONEOFF:
 					# Change status if applicable
 					if job.status == JobStatus.FINISHED:
 						job.status = JobStatus.PENDING
@@ -170,9 +172,9 @@ class ManifoldSubscriber():
 					return
    
 				# Interval job
-				if new_job.job_type == "interval":
+				if new_job.job_type == JobType.INTERVAL:
 					# Job becomes an interval type
-					job.job_type = "interval"
+					job.job_type = JobType.INTERVAL
 					# Change status if applicable
 					if job.status == JobStatus.FINISHED:
 						job.status = JobStatus.PENDING
@@ -185,11 +187,11 @@ class ManifoldSubscriber():
 						return
   
 		# New job
-		if new_job.job_type == "oneoff":
+		if new_job.job_type == JobType.ONEOFF:
 			# Set next execution time to now
 			new_job.next_execution_time = time.time()
   
-		elif new_job.job_type == "interval":
+		elif new_job.job_type == JobType.INTERVAL:
 			# Set next execution time
 			new_job.next_execution_time = time.time() + new_job.update_interval
 			# Set callback next call time
@@ -220,7 +222,7 @@ class ManifoldSubscriber():
 		job = Job(action=JobAction.ADD, 
 				function=self._update_user,
 			   	params=(user_id,),
-				job_type="interval",
+				job_type=JobType.INTERVAL,
 				callbacks=[                           
 				{
 					"function": callback,
@@ -258,6 +260,7 @@ class ManifoldSubscriber():
 
 		:return:
 			A Future object representing the eventual result of the API call and database update.
+
 		:rtype: Future
 		'''
 		logger.debug(f"Updating profile of user {user_id}")
@@ -267,7 +270,7 @@ class ManifoldSubscriber():
 		job = Job(action=JobAction.ADD, 
 				function=self._update_user,
 			   	params=(user_id,),
-       			job_type="oneoff",
+       			job_type=JobType.ONEOFF,
           		future=future)
 
 		self._jobs_queue.put(job)
@@ -296,7 +299,7 @@ class ManifoldSubscriber():
 		job = Job(action=JobAction.ADD,
 		  function=self._update_all_users,
 		  params=(),
-		  job_type="interval",
+		  job_type=JobType.INTERVAL,
 		  callbacks=[
 			  {
 				  "function": callback,
@@ -336,7 +339,7 @@ class ManifoldSubscriber():
 		job = Job(action=JobAction.ADD,
 		  function=self._update_all_users,
 		  params=(),
-		  job_type="oneoff",
+		  job_type=JobType.ONEOFF,
 		  future=future)
    
 		self._jobs_queue.put(job)
@@ -382,7 +385,7 @@ class ManifoldSubscriber():
 		job = Job(action=JobAction.ADD, 
 		  function=self._update_bets,
 		  params=(user_id, username, contract_id, contract_slug),
-		  job_type="interval",
+		  job_type=JobType.INTERVAL,
 		  callbacks=[
 			  {
 				  "function": callback,
@@ -451,7 +454,7 @@ class ManifoldSubscriber():
 		job = Job(action=JobAction.ADD,
 		  function=self._update_bets,
 		  params=(user_id, username, contract_id, contract_slug),
-		  job_type="oneoff",
+		  job_type=JobType.ONEOFF,
 		  future=future)
 
    
@@ -487,7 +490,7 @@ class ManifoldSubscriber():
 		job = Job(action=JobAction.ADD,
 		  function=self._update_market_positions,
 		  params=(market_id, user_id),
-		  job_type="interval",
+		  job_type=JobType.INTERVAL,
 		  callbacks=[
 			  {
 				  "function": callback,
@@ -537,7 +540,7 @@ class ManifoldSubscriber():
 		job = Job(action=JobAction.ADD,
 		  function=self._update_market_positions,
 		  params=(market_id, user_id),
-		  job_type="oneoff",
+		  job_type=JobType.ONEOFF,
 		  future=future)
 		self._jobs_queue.put(job)
 		return future
@@ -569,8 +572,8 @@ class ManifoldSubscriber():
 		'''
 		job = Job(action=JobAction.ADD,
 		  function=self._update_market,
-		  params=(market_id),
-		  job_type="interval",
+		  params=(market_id,),
+		  job_type=JobType.INTERVAL,
 		  callbacks=[
 			  {
 				  "function": callback,
@@ -608,6 +611,7 @@ class ManifoldSubscriber():
 
 		:returns: 
 			A Future object representing the eventual result of the API call and database update.
+
 		:rtype:
 			Future
 		'''
@@ -616,10 +620,11 @@ class ManifoldSubscriber():
   
 		job = Job(action=JobAction.ADD,
 		  function=self._update_market,
-		  params=(market_id),
-		  job_type="oneoff",
+		  params=(market_id,),
+		  job_type=JobType.ONEOFF,
 		  future=future)
 		self._jobs_queue.put(job)
+
 		return future
 	
  
@@ -627,6 +632,7 @@ class ManifoldSubscriber():
 		logger.debug(f"Updating market for market_id={market_id}")
   
 		market = self._manifold_api.get_market_by_id(market_id=market_id).result()
+		market["lite"] = False
 		if market["outcomeType"] == "BINARY":
 			self._manifold_db_writer.queue_write_operation(function=self._manifold_db.upsert_binary_choice_markets, data=[market]).result()
 		elif market["outcomeType"] == "MULTIPLE_CHOICE":
@@ -656,7 +662,7 @@ class ManifoldSubscriber():
 		job = Job(action=JobAction.ADD,
 			function=self._update_all_markets,
 			params=(),
-			job_type="interval",
+			job_type=JobType.INTERVAL,
 			callbacks=[
 				{
 					"function": callback,
@@ -696,7 +702,7 @@ class ManifoldSubscriber():
 		job = Job(action=JobAction.ADD,
 			function=self._update_all_markets,
 			params=(),
-			job_type="oneoff",
+			job_type=JobType.ONEOFF,
 			future=future
 			)
    
@@ -710,6 +716,7 @@ class ManifoldSubscriber():
 		binary_choice_markets = []
 		multiple_choice_markets = []
 		for market in markets:
+			market["lite"] = True
 			if market["outcomeType"] == "BINARY":
 				binary_choice_markets.append(market)
 			elif market["outcomeType"] == "MULTIPLE_CHOICE":

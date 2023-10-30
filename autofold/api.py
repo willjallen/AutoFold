@@ -450,24 +450,58 @@ class ManifoldAPI():
 		return future
 
 
-	def search_markets(self, terms=None):
+	def search_markets(self, term, sort=None, filter_state=None, contract_type=None, topic_slug=None, 
+					   creator_id=None, limit=None, offset=None, fuzzy=None):
 		'''
 		GET /v0/search-markets
 
-		Search markets by keywords, limited to 100 results.
+		Search or filter markets, similar to the browse page.
 
-		:param str terms: Optional. A space-separated list of keywords to search for.
-		:return: A Future object representing the eventual result of the API call.
+		:param str term: 
+			Required. The search query in question. Can be an empty string.
+		:param str sort: 
+			Optional. Sort order: score (default), newest, liquidity, or ... (see code).
+		:param str filter_state: 
+			Optional. Closing state: all (default), open, closed, resolved, closing-this-month, or closing-next-month.
+		:param str contract_type: 
+			Optional. Type of contract: ALL (default), BINARY (yes/no), MULTIPLE_CHOICE, BOUNTY, POLL, or ... (see code).
+		:param str topic_slug: 
+			Optional. Only include questions with the topic tag with this slug.
+		:param str creator_id: 
+			Optional. Only include questions created by the user with this id.
+		:param int limit: 
+			Optional. Number of contracts to return from 0 to 1000. Default 100.
+		:param int offset: 
+			Optional. Number of contracts to skip. Use with limit to paginate the results.
+		:param bool fuzzy: 
+			Optional. If set to any value, uses fuzzier string matching.
+
+		:return: 
+			A Future object representing the eventual result of the API call.
 		:rtype: Future
 		'''
-
 		future = Future()
-		params = {}
-		if terms:
-			params["terms"] = terms
-   
+		params = {
+			"term": term
+		}
+		if sort:
+			params["sort"] = sort
+		if filter_state:
+			params["filter"] = filter_state
+		if contract_type:
+			params["contractType"] = contract_type
+		if topic_slug:
+			params["topicSlug"] = topic_slug
+		if creator_id:
+			params["creatorId"] = creator_id
+		if limit:
+			params["limit"] = limit
+		if offset:
+			params["offset"] = offset
+		if fuzzy:
+			params["fuzzy"] = fuzzy
 		self._reads_queue.put((f"/api/v0/search-markets", "GET", params, future))
-		return future	
+		return future
 
 	def get_users(self, limit=None, before=None):
 		'''

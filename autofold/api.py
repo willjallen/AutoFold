@@ -15,7 +15,7 @@ MAIN_DOMAIN = 'https://manifold.markets'
 # Load API key from the environment variable
 api_key = os.environ.get("MANIFOLD_API_KEY")
 if api_key is None:
-    logger.error("Environment variable MANIFOLD_API_KEY is not set")
+	logger.error("Environment variable MANIFOLD_API_KEY is not set")
 	
 
 
@@ -29,7 +29,8 @@ Comments placed through the API will incur a M1 transaction fee.
 '''
 
 '''
-API interface is most recent with 2023-05-15 on changelog.
+https://docs.manifold.markets/api
+API interface is most recent with 2023-10-27 on Changelog.
 '''
 
 READS_PER_SECOND = 100
@@ -60,17 +61,17 @@ class TokenBucket:
 class ManifoldAPI():
 	def __init__(self, dev_mode=False):
 		'''
-        Initialize ManifoldAPI.
+		Initialize ManifoldAPI.
 
-        :param bool dev_mode: Optional. Whether to enable developer mode. Default is False.
-        
-        .. note::
+		:param bool dev_mode: Optional. Whether to enable developer mode. Default is False.
+		
+		.. note::
 			- API key must be provided as an environment variable as MANIFOLD_API_KEY
-            - Token buckets for reads and bets are initialized.
-            - Request queues for reads and bets are set up.
-            - Thread pool executor is set up.
-            - Separate threads for processing read and bet queues are started.
-        ''' 
+			- Token buckets for reads and bets are initialized.
+			- Request queues for reads and bets are set up.
+			- Thread pool executor is set up.
+			- Separate threads for processing read and bet queues are started.
+		''' 
 		logger.debug("Initializing ManifoldAPI")
 		self.dev_mode = dev_mode
 		self._reads_bucket = TokenBucket(100, READS_PER_SECOND) 
@@ -109,16 +110,16 @@ class ManifoldAPI():
 
 	def shutdown(self):
 		'''
-        Shutdown the ManifoldAPI.
+		Shutdown the ManifoldAPI.
 
-        .. note::
-            - Stops all running threads.
-            - Shuts down the thread pool _executor.
-            - Sets all pending Futures to exceptions stating "API is shutting down".
-            
-        :return: None
-        :rtype: None
-        ''' 
+		.. note::
+			- Stops all running threads.
+			- Shuts down the thread pool _executor.
+			- Sets all pending Futures to exceptions stating "API is shutting down".
+			
+		:return: None
+		:rtype: None
+		''' 
 		logger.info("Shutting down ManifoldAPI") 
 		self.running = False
 		self._read_thread.join()
@@ -184,7 +185,7 @@ class ManifoldAPI():
 
 	def _process_bet_queue(self):
 		while self.running:
-      
+	  
 			self._bets_bucket.refill() 
 
 			# Process bet requests if we can
@@ -194,9 +195,9 @@ class ManifoldAPI():
 					time.sleep(wait_time)
 				endpoint, method, params, future = self._bets_queue.get()
 				self._executor.submit(self._make_request, endpoint, method, params, future)
-    
+	
 			time.sleep(0.1)  # Sleep 100 milliseconds if the queue is empty 
-    
+	
 
 	def retrieve_all_data(self, api_call_func, max_limit=1000, **api_params):
 		'''
@@ -884,3 +885,65 @@ class ManifoldAPI():
 		self._reads_queue.put((f"/api/v0/bets", "GET", params, future))
 		return future
 
+	def get_managrams(self, to_id=None, from_id=None, limit=None, before=None, after=None):
+		'''
+		GET /v0/managrams
+
+		Retrieves a list of managrams, ordered by their creation time in descending order.
+
+		:param str to_id: 
+			Optional. Returns managrams sent to this user.
+		:param str from_id: 
+			Optional. Returns managrams sent from this user.
+		:param int limit: 
+			Optional. How many managrams to return. The maximum and the default are 100.
+		:param str before: 
+			Optional. Specifies the createdTime before which you want managrams.
+		:param str after: 
+			Optional. Specifies the createdTime after which you want managrams.
+
+		:return: 
+			A Future object representing the eventual result of the API call.
+		:rtype: Future
+		'''
+		future = Future()
+		params = {}
+		if to_id:
+			params["toId"] = to_id
+		if from_id:
+			params["fromId"] = from_id
+		if limit:
+			params["limit"] = limit
+		if before:
+			params["before"] = before
+		if after:
+			params["after"] = after
+		self._reads_queue.put((f"/api/v0/managrams", "GET", params, future))
+		return future
+
+	def send_managram(self, to_ids, amount, message=None):
+		'''
+		POST /v0/managram
+
+		Send a managram to another user.
+
+		:param list[str] to_ids: 
+			Required. An array of user ids to send managrams to.
+		:param int amount: 
+			Required. The amount of mana (must be >= 10) to send to each user.
+		:param str message: 
+			Optional. A message to include with the managram.
+
+		:return: 
+			A Future object representing the eventual result of the API call.
+		:rtype: Future
+		'''
+		future = Future()
+		params = {
+			"amount": amount,
+			"toIds": to_ids
+		}
+		if message:
+			params["message"] = message
+		self._reads_queue.put((f"/api/v0/managram", "POST", params, future))
+		return future

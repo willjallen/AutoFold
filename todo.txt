@@ -1,4 +1,5 @@
 High priority:
+- database writer hangs on exit sometimes
 - there's a fulluser and liteuser disctiontion, same as full/lite markets
     - /api/v0/user/[username] -> liteUser
     - /api/v0/users/ -> liteUser
@@ -9,7 +10,6 @@ High priority:
 
 
 Medium priority:
-- add new managram endpoints
 - should make sure two simultaneous updates from api to db from different sources only writes most current info (check for API-side timestamps if present)
 - Utilities
     - cpmm calculator:
@@ -43,6 +43,8 @@ Done:
 High priority:
 
 Medium priority:
+- add new managram endpoints
+
 
 Low priority:
 
